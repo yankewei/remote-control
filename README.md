@@ -1,0 +1,101 @@
+# 遥控板 RemoteControl
+
+用 iPhone 控制 Mac 鼠标，并把中文语音转换为文字输入到 Mac。项目包含原生 iOS App 和 macOS 菜单栏 App，不需要账户或服务器。
+
+iPhone 与 Mac 请使用同一版本：握手时会校验协议版本，版本不一致会直接提示更新两端 App，而不是静默失败或反复重连。
+
+## 开始使用
+
+要求：iOS 17+、macOS 14+、Xcode 15+。开发验证环境为 Xcode 27.1。
+
+1. 用 Xcode 打开 `RemoteControl.xcodeproj`。在两个 Target 的 Signing & Capabilities 中选择你的开发团队，必要时修改 Bundle Identifier。
+2. 选择 `RemoteControlMac` Scheme，在 My Mac 上运行。点击菜单栏的鼠标图标。
+3. 点击“打开辅助功能设置”，在系统设置中允许 **遥控板 Mac**。如果系统询问局域网访问，也需要允许。首次授权后若仍无法控制，退出并重新运行 Mac App。
+4. 选择 `RemoteControl` Scheme，在自己的 iPhone 上运行。让手机和 Mac 连接同一 Wi-Fi。
+5. 在手机点击“连接 Mac”，选择发现的 Mac。在 Mac 菜单栏中展开“显示配对码”，将完整的 32 位配对码输入手机，点击“配对并连接”。支持空格、连字符和大小写格式。
+6. 若自动发现不可用，可在手机输入 Mac 的局域网 IP，端口固定为 `19847`。需要允许防火墙接收入站连接；访客 Wi-Fi 的设备隔离可能阻止连接。
+
+首次配对后保存凭证，下次打开会自动连接。设置页提供“重新连接已保存的 Mac”，手动断开后不需要重新输入 32 位配对码。同一时间只允许一台手机操作；Mac 菜单栏提供“断开当前设备”，不会影响配对钥匙。
+
+手动 IP 配对成功后会同时记住 Mac 的稳定 serverID。之后只要这台 Mac 还能通过 Bonjour 被发现，即使 DHCP 地址变化，手机也会自动切回 Bonjour 连接。Mac 可以“暂停接收”，或通过“撤销所有配对”更换控制钥匙并断开设备。
+
+## 操作
+
+- 单指滑动：相对移动鼠标，支持速度调节和指针加速。
+- 单击 / 双击：左键单击 / 双击。
+- 双指轻点：右键；双指滑动：滚动。
+- 长按约 0.35 秒，再移动：拖拽，松开结束。
+- 底部按钮：左右键、Esc、Tab、删除、Enter。
+- “连接与设置”中还有复制、粘贴和 Spotlight 快捷操作。
+- 横屏时主要显示大触控区域。
+
+语音输入：按住“按住说话”，松开后等待识别完成；检查、编辑预览文字，再点击发送箭头。首次需要麦克风和语音识别权限；权限对话框打断手势后，重新按住即可。也可以点击键盘按钮直接输入文字。
+
+如果草稿里已经有文字，开始语音会把识别结果追加在原草稿之后，而不是清空草稿；英文单词之间会自动补一个空格。
+
+默认只使用本机中文识别。不支持离线中文识别的设备可以在设置中关闭“仅使用离线语音识别”；此时语音可能发送到 Apple 的语音识别服务。松手不会自动发送文字。
+
+文字输入到 **Mac 当前聚焦的文本框**，不会自动按回车。手机收到 Mac 接收确认后才清空草稿；连接中断或确认超时不会自动重发。确认只表示 Mac 已提交输入事件，不保证目标 App 已接受文字；看到超时提示时，请先检查 Mac，避免重复发送。
+
+默认使用 Unicode 键盘事件，并按字符边界切块，不会把常见 emoji 的 ZWJ 序列、旗帜或组合音标拆开。若某个 App 不接收中文，可在 Mac 菜单栏中开启“使用粘贴输入文字”（该开关会持久化）。此模式短暂替换剪贴板，约 0.8 秒后在剪贴板未被其他操作修改的情况下恢复原内容；复杂剪贴板内容和极慢的目标 App 仍可能无法完美恢复，且注入的文字会在这段时间内出现在剪贴板中，请避免在敏感场景使用。密码框、受保护输入区域和部分应用可能拒绝模拟输入。
+
+## 项目结构
+
+```text
+Shared/    消息协议、分帧、TLS 连接、钥匙串凭证、字符边界切块
+macOS/     菜单栏界面、接收服务、鼠标和文字输入
+iOS/       设备发现、重连、触控手势、语音识别和界面
+Tests/     协议边界、字符切块与真实 TLS 回环测试
+project.yml  XcodeGen 工程配置
+```
+
+目录中包含可直接打开的 Xcode 工程。新增文件或修改工程配置后，如果安装了 XcodeGen，运行：
+
+```sh
+xcodegen generate
+```
+
+运行共享层测试：
+
+```sh
+swift test
+```
+
+无需签名的编译检查：
+
+```sh
+xcodebuild -project RemoteControl.xcodeproj -scheme RemoteControlMac -configuration Debug -derivedDataPath build CODE_SIGNING_ALLOWED=NO build
+xcodebuild -project RemoteControl.xcodeproj -scheme RemoteControl -sdk iphonesimulator -destination 'generic/platform=iOS Simulator' -derivedDataPath build CODE_SIGNING_ALLOWED=NO build
+```
+
+## 连接与安全
+
+配对码由系统安全随机数生成，包含 128 位随机性。它是可持续控制该 Mac 的共享钥匙，请仅给自己的可信设备。手机和 Mac 都将钥匙保存在系统钥匙串；Bonjour 只发布设备名称，不发布配对码。Mac 撤销配对会轮换钥匙，旧设备必须重新配对。
+
+传输使用 TLS 1.2 PSK 与 AES-128-GCM。采用 TLS 1.2 是因为 Apple Network.framework 的外部 PSK 接口不支持 TLS 1.3，参见 [Apple TN3213](https://developer.apple.com/documentation/technotes/tn3213-moving-from-multipeer-connectivity-to-network-framework)。不使用跳过证书校验的明文连接或无认证控制接口。
+
+为了使用 Accessibility 和 CGEvent 注入，Mac 端关闭了 App Sandbox。这是本项目的分发取舍：适合开发者自签/直接分发，不是 Mac App Store 配置。手机端不采集分析数据；语音默认只在本机识别，关闭离线选项后才可能使用 Apple 的语音服务。
+
+协议使用有长度上限的帧，对位移、点击次数和文字长度做校验。连接使用心跳检测；断线时 Mac 释放拖拽。App 不在 iPhone 后台持续控制；回到前台后尝试重连。键盘和文字不会在断线后排队重放。
+
+## 当前验证状态
+
+- iOS 模拟器与 macOS Debug 编译检查：通过。
+- 11 个自动测试：通过。覆盖拆包 / 合包、全部消息编码解码、协议版本字段、非法数据拒绝、配对码生成、字符边界切块、真实加密收发与错误钥匙拒绝。
+- CI 配置在 `.github/workflows/ci.yml`，会运行 `swift test` 并编译两个 Target。
+- 尚未完成 iPhone 与 Mac 真机联调。模拟器不能证明实际触控手感、麦克风识别质量或辅助功能输入效果。
+
+真机验收清单：
+
+- [ ] 连续移动鼠标 5 分钟，无明显卡顿或跳跃。
+- [ ] 各执行 20 次单击、双击、右键、滚动和长按拖拽，响应正确。
+- [ ] 10 次中文语音输入至少 9 次无需手动纠正。
+- [ ] 浏览器、备忘录、VS Code 均能输入中文、英文、标点和 emoji。
+- [ ] Wi-Fi 中断后自动重连；拖拽中断不会保持按下。
+- [ ] iPhone 切到后台再返回，恢复连接且不重放文字。
+- [ ] Mac 暂停接收、断开当前设备、撤销配对后旧连接立即失效。
+- [ ] 手动断开后点击“重新连接已保存的 Mac”可以恢复，不需要重新输入配对码。
+- [ ] 手动 IP 配对后修改 Mac 的 DHCP 地址，手机仍能通过 Bonjour 自动切回。
+- [ ] 输入含 ZWJ emoji、旗帜和组合音标的长文本，Mac 端字符完整。
+
+本版不包含投屏、镜像、外网穿透、云端账户和上架配置。

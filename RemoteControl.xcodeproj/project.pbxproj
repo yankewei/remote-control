@@ -1,0 +1,465 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 77;
+	objects = {
+
+/* Begin PBXBuildFile section */
+		085FC7E3834E0CB06777E915 /* SecureConnection.swift in Sources */ = {isa = PBXBuildFile; fileRef = B3DA90BB1DA926C4DB7F6DF5 /* SecureConnection.swift */; };
+		0A1B4334C569F58060B37DB7 /* ConnectionServer.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1974A29BF67996665B05C7D3 /* ConnectionServer.swift */; };
+		2FB3411DAF0848FB3F629C1A /* ControlMessage.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4A1936E97E6FDB3619AB377E /* ControlMessage.swift */; };
+		3D9C1A0653AD3EAAC967C920 /* RemoteControlMacApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7CFE4CF5D084C0CA0BB82F60 /* RemoteControlMacApp.swift */; };
+		3ED7C4C481B2F50572551117 /* InputController.swift in Sources */ = {isa = PBXBuildFile; fileRef = BC72F501FC1205FE864CAAA1 /* InputController.swift */; };
+		4AFEEE0890F561369427EAF7 /* RemoteControlApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = E3608BED1740653B64DEFCFA /* RemoteControlApp.swift */; };
+		573E8DCACE2563AE653FF49D /* TextChunker.swift in Sources */ = {isa = PBXBuildFile; fileRef = E3B5B37C532EF9809B3E2D9E /* TextChunker.swift */; };
+		621C4A663FC4493DF1B95BD9 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 0CC813B3E6563CF507ABAF64 /* Assets.xcassets */; };
+		6DDA0438DE423FBA61452280 /* SpeechInput.swift in Sources */ = {isa = PBXBuildFile; fileRef = 84907C5C03C3D6DF86D4253E /* SpeechInput.swift */; };
+		8919FA9FF85163ADC7FE2A28 /* PrivacyInfo.xcprivacy in Resources */ = {isa = PBXBuildFile; fileRef = 87B026C3053BDB527BFA2D11 /* PrivacyInfo.xcprivacy */; };
+		8DA3909296660F7C4C6EDF5F /* MacConnection.swift in Sources */ = {isa = PBXBuildFile; fileRef = 54D443C0972D3765749BCC8B /* MacConnection.swift */; };
+		9D485CE61AB9CB59ABAA6E16 /* ControllerView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 694F390BBFB9A4105119B3E9 /* ControllerView.swift */; };
+		9F6F04B7D0D95497F8169074 /* TextChunker.swift in Sources */ = {isa = PBXBuildFile; fileRef = E3B5B37C532EF9809B3E2D9E /* TextChunker.swift */; };
+		AB527B5E9AF5BB03667014D1 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 0CC813B3E6563CF507ABAF64 /* Assets.xcassets */; };
+		C8AF0B7B0500E4A43FF8DDF6 /* PrivacyInfo.xcprivacy in Resources */ = {isa = PBXBuildFile; fileRef = 87B026C3053BDB527BFA2D11 /* PrivacyInfo.xcprivacy */; };
+		DB2F9A99539B1AAFD197A0AB /* TrackpadView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 63FB9F71CC744C9D0B9D87E3 /* TrackpadView.swift */; };
+		DD63D2D49B3A358AAE7E1389 /* ControlMessage.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4A1936E97E6FDB3619AB377E /* ControlMessage.swift */; };
+		FC579C9D35321837B96E253D /* SecureConnection.swift in Sources */ = {isa = PBXBuildFile; fileRef = B3DA90BB1DA926C4DB7F6DF5 /* SecureConnection.swift */; };
+/* End PBXBuildFile section */
+
+/* Begin PBXFileReference section */
+		0CC813B3E6563CF507ABAF64 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
+		169771C7E445B099CFB17639 /* RemoteControlMac.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = RemoteControlMac.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		1974A29BF67996665B05C7D3 /* ConnectionServer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ConnectionServer.swift; sourceTree = "<group>"; };
+		48E98D900F299FF3A7C09242 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
+		4A1936E97E6FDB3619AB377E /* ControlMessage.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ControlMessage.swift; sourceTree = "<group>"; };
+		54D443C0972D3765749BCC8B /* MacConnection.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MacConnection.swift; sourceTree = "<group>"; };
+		5FEA2C70774A3C7CA88B9793 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
+		63FB9F71CC744C9D0B9D87E3 /* TrackpadView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TrackpadView.swift; sourceTree = "<group>"; };
+		694F390BBFB9A4105119B3E9 /* ControllerView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ControllerView.swift; sourceTree = "<group>"; };
+		7CFE4CF5D084C0CA0BB82F60 /* RemoteControlMacApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RemoteControlMacApp.swift; sourceTree = "<group>"; };
+		84907C5C03C3D6DF86D4253E /* SpeechInput.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SpeechInput.swift; sourceTree = "<group>"; };
+		87B026C3053BDB527BFA2D11 /* PrivacyInfo.xcprivacy */ = {isa = PBXFileReference; path = PrivacyInfo.xcprivacy; sourceTree = "<group>"; };
+		B3DA90BB1DA926C4DB7F6DF5 /* SecureConnection.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SecureConnection.swift; sourceTree = "<group>"; };
+		BC72F501FC1205FE864CAAA1 /* InputController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = InputController.swift; sourceTree = "<group>"; };
+		DF6F831755BBDAA7D4A65987 /* RemoteControl.app */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.application; path = RemoteControl.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		E3608BED1740653B64DEFCFA /* RemoteControlApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RemoteControlApp.swift; sourceTree = "<group>"; };
+		E3B5B37C532EF9809B3E2D9E /* TextChunker.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TextChunker.swift; sourceTree = "<group>"; };
+/* End PBXFileReference section */
+
+/* Begin PBXGroup section */
+		A64BFC3C82E5BB8CD00CFE2E = {
+			isa = PBXGroup;
+			children = (
+				CAC375F920280F42D71AEC1A /* Assets */,
+				D1BCB30C5012D8D934E0E4BA /* iOS */,
+				D34F2F97A66251462065F46E /* macOS */,
+				B2EFA88836A65A3A0426A962 /* Shared */,
+				F4F7FBC04EB099C94898CD26 /* Products */,
+			);
+			sourceTree = "<group>";
+		};
+		B2EFA88836A65A3A0426A962 /* Shared */ = {
+			isa = PBXGroup;
+			children = (
+				4A1936E97E6FDB3619AB377E /* ControlMessage.swift */,
+				87B026C3053BDB527BFA2D11 /* PrivacyInfo.xcprivacy */,
+				B3DA90BB1DA926C4DB7F6DF5 /* SecureConnection.swift */,
+				E3B5B37C532EF9809B3E2D9E /* TextChunker.swift */,
+			);
+			path = Shared;
+			sourceTree = "<group>";
+		};
+		CAC375F920280F42D71AEC1A /* Assets */ = {
+			isa = PBXGroup;
+			children = (
+				0CC813B3E6563CF507ABAF64 /* Assets.xcassets */,
+			);
+			path = Assets;
+			sourceTree = "<group>";
+		};
+		D1BCB30C5012D8D934E0E4BA /* iOS */ = {
+			isa = PBXGroup;
+			children = (
+				694F390BBFB9A4105119B3E9 /* ControllerView.swift */,
+				5FEA2C70774A3C7CA88B9793 /* Info.plist */,
+				54D443C0972D3765749BCC8B /* MacConnection.swift */,
+				E3608BED1740653B64DEFCFA /* RemoteControlApp.swift */,
+				84907C5C03C3D6DF86D4253E /* SpeechInput.swift */,
+				63FB9F71CC744C9D0B9D87E3 /* TrackpadView.swift */,
+			);
+			path = iOS;
+			sourceTree = "<group>";
+		};
+		D34F2F97A66251462065F46E /* macOS */ = {
+			isa = PBXGroup;
+			children = (
+				1974A29BF67996665B05C7D3 /* ConnectionServer.swift */,
+				48E98D900F299FF3A7C09242 /* Info.plist */,
+				BC72F501FC1205FE864CAAA1 /* InputController.swift */,
+				7CFE4CF5D084C0CA0BB82F60 /* RemoteControlMacApp.swift */,
+			);
+			path = macOS;
+			sourceTree = "<group>";
+		};
+		F4F7FBC04EB099C94898CD26 /* Products */ = {
+			isa = PBXGroup;
+			children = (
+				DF6F831755BBDAA7D4A65987 /* RemoteControl.app */,
+				169771C7E445B099CFB17639 /* RemoteControlMac.app */,
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
+/* End PBXGroup section */
+
+/* Begin PBXNativeTarget section */
+		1D783117E46740BCF2804575 /* RemoteControl */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 4B3E363FA3B81F22FC883715 /* Build configuration list for PBXNativeTarget "RemoteControl" */;
+			buildPhases = (
+				BD7806BC9FC6AB3302463CE1 /* Sources */,
+				AC6738817951C7489A46D5F3 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = RemoteControl;
+			packageProductDependencies = (
+			);
+			productName = RemoteControl;
+			productReference = DF6F831755BBDAA7D4A65987 /* RemoteControl.app */;
+			productType = "com.apple.product-type.application";
+		};
+		C041F03AE430BF16AAB32BBD /* RemoteControlMac */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 06EBBB93E219E467CEB5F489 /* Build configuration list for PBXNativeTarget "RemoteControlMac" */;
+			buildPhases = (
+				3A2994FE8296F6F60774C901 /* Sources */,
+				80CB9C623781F628DBDC9E15 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = RemoteControlMac;
+			packageProductDependencies = (
+			);
+			productName = RemoteControlMac;
+			productReference = 169771C7E445B099CFB17639 /* RemoteControlMac.app */;
+			productType = "com.apple.product-type.application";
+		};
+/* End PBXNativeTarget section */
+
+/* Begin PBXProject section */
+		DA46BBD7B42CF7179B228601 /* Project object */ = {
+			isa = PBXProject;
+			attributes = {
+				BuildIndependentTargetsInParallel = YES;
+				LastUpgradeCheck = 1430;
+				TargetAttributes = {
+					1D783117E46740BCF2804575 = {
+						ProvisioningStyle = Automatic;
+					};
+					C041F03AE430BF16AAB32BBD = {
+						ProvisioningStyle = Automatic;
+					};
+				};
+			};
+			buildConfigurationList = 128F739B2A54B947AC0F1CD8 /* Build configuration list for PBXProject "RemoteControl" */;
+			developmentRegion = en;
+			hasScannedForEncodings = 0;
+			knownRegions = (
+				Base,
+				en,
+			);
+			mainGroup = A64BFC3C82E5BB8CD00CFE2E;
+			minimizedProjectReferenceProxies = 1;
+			preferredProjectObjectVersion = 77;
+			productRefGroup = F4F7FBC04EB099C94898CD26 /* Products */;
+			projectDirPath = "";
+			projectRoot = "";
+			targets = (
+				1D783117E46740BCF2804575 /* RemoteControl */,
+				C041F03AE430BF16AAB32BBD /* RemoteControlMac */,
+			);
+		};
+/* End PBXProject section */
+
+/* Begin PBXResourcesBuildPhase section */
+		80CB9C623781F628DBDC9E15 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				621C4A663FC4493DF1B95BD9 /* Assets.xcassets in Resources */,
+				C8AF0B7B0500E4A43FF8DDF6 /* PrivacyInfo.xcprivacy in Resources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		AC6738817951C7489A46D5F3 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				AB527B5E9AF5BB03667014D1 /* Assets.xcassets in Resources */,
+				8919FA9FF85163ADC7FE2A28 /* PrivacyInfo.xcprivacy in Resources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXResourcesBuildPhase section */
+
+/* Begin PBXSourcesBuildPhase section */
+		3A2994FE8296F6F60774C901 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				0A1B4334C569F58060B37DB7 /* ConnectionServer.swift in Sources */,
+				2FB3411DAF0848FB3F629C1A /* ControlMessage.swift in Sources */,
+				3ED7C4C481B2F50572551117 /* InputController.swift in Sources */,
+				3D9C1A0653AD3EAAC967C920 /* RemoteControlMacApp.swift in Sources */,
+				085FC7E3834E0CB06777E915 /* SecureConnection.swift in Sources */,
+				573E8DCACE2563AE653FF49D /* TextChunker.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		BD7806BC9FC6AB3302463CE1 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				DD63D2D49B3A358AAE7E1389 /* ControlMessage.swift in Sources */,
+				9D485CE61AB9CB59ABAA6E16 /* ControllerView.swift in Sources */,
+				8DA3909296660F7C4C6EDF5F /* MacConnection.swift in Sources */,
+				4AFEEE0890F561369427EAF7 /* RemoteControlApp.swift in Sources */,
+				FC579C9D35321837B96E253D /* SecureConnection.swift in Sources */,
+				6DDA0438DE423FBA61452280 /* SpeechInput.swift in Sources */,
+				9F6F04B7D0D95497F8169074 /* TextChunker.swift in Sources */,
+				DB2F9A99539B1AAFD197A0AB /* TrackpadView.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXSourcesBuildPhase section */
+
+/* Begin XCBuildConfiguration section */
+		2108540B2F17A93C4F2DEECA /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				COMBINE_HIDPI_IMAGES = YES;
+				ENABLE_APP_SANDBOX = NO;
+				INFOPLIST_FILE = macOS/Info.plist;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/../Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = com.yankewei.remotecontrol.mac;
+				SDKROOT = macosx;
+			};
+			name = Release;
+		};
+		2B241A338129E36CC96ED536 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++14";
+				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				CODE_SIGN_STYLE = Automatic;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				ENABLE_NS_ASSERTIONS = NO;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_USER_SCRIPT_SANDBOXING = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu11;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				MACOSX_DEPLOYMENT_TARGET = 14.0;
+				MTL_ENABLE_DEBUG_INFO = NO;
+				MTL_FAST_MATH = YES;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SWIFT_COMPILATION_MODE = wholemodule;
+				SWIFT_OPTIMIZATION_LEVEL = "-O";
+				SWIFT_VERSION = 5.0;
+			};
+			name = Release;
+		};
+		73ED38D7EF9BCAD92B479947 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				CODE_SIGN_IDENTITY = "iPhone Developer";
+				INFOPLIST_FILE = iOS/Info.plist;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = com.yankewei.remotecontrol.ios;
+				SDKROOT = iphoneos;
+				SUPPORTS_MACCATALYST = NO;
+				TARGETED_DEVICE_FAMILY = 1;
+			};
+			name = Release;
+		};
+		A8C38F66A8FFCE13CC2A0DE8 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				CODE_SIGN_IDENTITY = "iPhone Developer";
+				INFOPLIST_FILE = iOS/Info.plist;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = com.yankewei.remotecontrol.ios;
+				SDKROOT = iphoneos;
+				SUPPORTS_MACCATALYST = NO;
+				TARGETED_DEVICE_FAMILY = 1;
+			};
+			name = Debug;
+		};
+		C8E487EBC51595921F2F1083 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				COMBINE_HIDPI_IMAGES = YES;
+				ENABLE_APP_SANDBOX = NO;
+				INFOPLIST_FILE = macOS/Info.plist;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/../Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = com.yankewei.remotecontrol.mac;
+				SDKROOT = macosx;
+			};
+			name = Debug;
+		};
+		FBE3294DFCCEEFC4713F27AD /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++14";
+				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				CODE_SIGN_STYLE = Automatic;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = dwarf;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_TESTABILITY = YES;
+				ENABLE_USER_SCRIPT_SANDBOXING = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu11;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					"$(inherited)",
+					"DEBUG=1",
+				);
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				MACOSX_DEPLOYMENT_TARGET = 14.0;
+				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
+				MTL_FAST_MATH = YES;
+				ONLY_ACTIVE_ARCH = YES;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = DEBUG;
+				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
+				SWIFT_VERSION = 5.0;
+			};
+			name = Debug;
+		};
+/* End XCBuildConfiguration section */
+
+/* Begin XCConfigurationList section */
+		06EBBB93E219E467CEB5F489 /* Build configuration list for PBXNativeTarget "RemoteControlMac" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				C8E487EBC51595921F2F1083 /* Debug */,
+				2108540B2F17A93C4F2DEECA /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
+		128F739B2A54B947AC0F1CD8 /* Build configuration list for PBXProject "RemoteControl" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				FBE3294DFCCEEFC4713F27AD /* Debug */,
+				2B241A338129E36CC96ED536 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
+		4B3E363FA3B81F22FC883715 /* Build configuration list for PBXNativeTarget "RemoteControl" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				A8C38F66A8FFCE13CC2A0DE8 /* Debug */,
+				73ED38D7EF9BCAD92B479947 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
+/* End XCConfigurationList section */
+	};
+	rootObject = DA46BBD7B42CF7179B228601 /* Project object */;
+}
