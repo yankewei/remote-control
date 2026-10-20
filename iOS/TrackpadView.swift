@@ -26,26 +26,28 @@ struct TrackpadView: UIViewRepresentable {
     var enabled: Bool
     var sensitivity: Double
     var send: (ControlMessage) -> Void
+    var move: (Double, Double, TimeInterval) -> Void
     var onTouch: ([TrackpadTouch], Bool) -> Void
 
     func makeUIView(context: Context) -> TouchSurface {
         let view = TouchSurface()
-        view.configure(enabled: enabled, sensitivity: sensitivity, send: send, onTouch: onTouch)
+        view.configure(enabled: enabled, sensitivity: sensitivity, send: send, move: move, onTouch: onTouch)
         return view
     }
 
     func updateUIView(_ view: TouchSurface, context: Context) {
-        view.configure(enabled: enabled, sensitivity: sensitivity, send: send, onTouch: onTouch)
+        view.configure(enabled: enabled, sensitivity: sensitivity, send: send, move: move, onTouch: onTouch)
     }
 }
 
 final class TouchSurface: UIView, UIGestureRecognizerDelegate {
     private var send: (ControlMessage) -> Void = { _ in }
+    private var move: (Double, Double, TimeInterval) -> Void = { _, _, _ in }
     private var onTouch: (([TrackpadTouch], Bool) -> Void)?
     private var sensitivity = 1.4
     private var dragging = false
     private var wasEnabled = true
-    private let oneFinger = UIPanGestureRecognizer()
+    private let oneFinger = PointerPanGestureRecognizer()
     private var lastPointer: CGPoint?
     private let twoFingers = UIPanGestureRecognizer()
     private let hold = UILongPressGestureRecognizer()
@@ -91,13 +93,15 @@ final class TouchSurface: UIView, UIGestureRecognizerDelegate {
 
     required init?(coder: NSCoder) { fatalError("init(coder:) has not been implemented") }
 
-    func configure(enabled: Bool, sensitivity: Double, send: @escaping (ControlMessage) -> Void, onTouch: @escaping ([TrackpadTouch], Bool) -> Void) {
+    func configure(enabled: Bool, sensitivity: Double, send: @escaping (ControlMessage) -> Void,
+                   move: @escaping (Double, Double, TimeInterval) -> Void, onTouch: @escaping ([TrackpadTouch], Bool) -> Void) {
         let previouslyEnabled = wasEnabled
         if previouslyEnabled && !enabled && dragging {
             self.send(.drag(active: false))
             dragging = false
         }
         self.send = send
+        self.move = move
         self.onTouch = onTouch
         self.sensitivity = sensitivity
         isUserInteractionEnabled = enabled
@@ -110,17 +114,25 @@ final class TouchSurface: UIView, UIGestureRecognizerDelegate {
     @objc private func movePointer(_ gesture: UIPanGestureRecognizer) {
         // Measure from the finger's touch-down point rather than `translation`: the pan's
         // ~10pt start threshold would otherwise be dropped, making small moves feel dead.
-        let location = gesture.location(in: self)
         switch gesture.state {
         case .began, .changed:
-            let origin = lastPointer ?? location
-            lastPointer = location
-            let delta = CGPoint(x: location.x - origin.x, y: location.y - origin.y)
             let speed = hypot(gesture.velocity(in: self).x, gesture.velocity(in: self).y)
             // Slow strokes stay precise (≈1×); fast flicks reach up to 3.5× to cross the screen.
             let gain = sensitivity * (1 + min(speed / 600, 2.5))
-            send(.move(dx: ControlMessage.clampDelta(delta.x * gain), dy: ControlMessage.clampDelta(delta.y * gain)))
+            // Every touch sample, including the ones UIKit coalesced into this frame, goes out
+            // with its own timestamp so the Mac can replay the stroke at the finger's pace.
+            var samples = oneFinger.takeSamples()
+            if samples.isEmpty { samples = [(gesture.location(in: self), ProcessInfo.processInfo.systemUptime)] }
+            for sample in samples {
+                let origin = lastPointer ?? sample.location
+                lastPointer = sample.location
+                let dx = (sample.location.x - origin.x) * gain
+                let dy = (sample.location.y - origin.y) * gain
+                guard dx != 0 || dy != 0 else { continue }
+                move(ControlMessage.clampDelta(dx), ControlMessage.clampDelta(dy), sample.time)
+            }
         default:
+            _ = oneFinger.takeSamples()
             lastPointer = nil
         }
     }
@@ -168,6 +180,32 @@ final class TouchSurface: UIView, UIGestureRecognizerDelegate {
     func gestureRecognizer(_ gestureRecognizer: UIGestureRecognizer, shouldRecognizeSimultaneouslyWith other: UIGestureRecognizer) -> Bool {
         if gestureRecognizer === observer || other === observer { return true }
         return (gestureRecognizer === oneFinger && other === hold) || (gestureRecognizer === hold && other === oneFinger)
+    }
+}
+
+/// A pan that keeps every touch sample since the last action, including the in-between ones UIKit
+/// coalesces into one frame (touch sampling outruns the display on ProMotion iPhones).
+final class PointerPanGestureRecognizer: UIPanGestureRecognizer {
+    typealias Sample = (location: CGPoint, time: TimeInterval)
+    private var samples: [Sample] = []
+
+    override func touchesMoved(_ touches: Set<UITouch>, with event: UIEvent) {
+        if let touch = touches.first, let view {
+            for sample in event.coalescedTouches(for: touch) ?? [touch] {
+                samples.append((sample.location(in: view), sample.timestamp))
+            }
+        }
+        super.touchesMoved(touches, with: event)
+    }
+
+    func takeSamples() -> [Sample] {
+        defer { samples.removeAll(keepingCapacity: true) }
+        return samples
+    }
+
+    override func reset() {
+        samples.removeAll()
+        super.reset()
     }
 }
 
@@ -240,6 +278,7 @@ final class TouchObserverGestureRecognizer: UIGestureRecognizer {
 struct TouchpadCanvas: View {
     var sensitivity: Double
     var send: (ControlMessage) -> Void
+    var move: (Double, Double, TimeInterval) -> Void
     var isConnected: Bool
     var inputAllowed: Bool
     var cornerRadius: CGFloat
@@ -274,6 +313,7 @@ struct TouchpadCanvas: View {
                 enabled: isConnected && inputAllowed,
                 sensitivity: sensitivity,
                 send: send,
+                move: move,
                 onTouch: handleTouch
             )
             .frame(maxWidth: .infinity, maxHeight: .infinity)

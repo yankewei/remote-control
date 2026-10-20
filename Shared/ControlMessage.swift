@@ -117,7 +117,8 @@ enum ProtocolError: Error, Equatable { case invalidMessage, oversizedFrame }
 // clock, so the Mac can replay the stroke at its original pace after a small fixed delay.
 
 enum MotionChannel {
-    /// Fixed playout delay. Late packets beyond it still apply, just without interpolation.
+    /// Starting playout delay, until enough samples show how much the link actually jitters.
+    /// Late packets beyond the delay still apply, just without interpolation.
     static let playoutDelay: TimeInterval = 0.025
     /// The Mac advertises this service with its serverID as the local name, so the phone joins
     /// the Mac it is paired with.
@@ -176,6 +177,20 @@ struct MotionPlayout {
     private struct Sample { var time: Double; var x: Double; var y: Double }
 
     var delay = MotionChannel.playoutDelay
+    /// Fit `delay` to the link: the recent p95 lateness plus a margin. It may rise a little within
+    /// a stroke but only drops when a new stroke starts, where the change is invisible.
+    var adaptive = true
+    private var recentLateness: [Double] = []
+    private var lastReceived = -Double.infinity
+    private static let latenessWindow = 240
+    private static let minimumSamples = 30
+    private static let delayMargin = 0.004
+    static let minimumDelay = 0.008
+    static let maximumDelay = 0.08
+    /// Largest increase applied to a single sample within a stroke, so a rise reads as a
+    /// barely slower stretch rather than a pause.
+    private static let maximumRiseStep = 0.002
+    private static let strokeGap = 0.15
     private var lastSeq: UInt32?
     private var samples: [Sample] = []
     private var offset: Double?
@@ -203,10 +218,24 @@ struct MotionPlayout {
         let offset = self.offset.map { min(observed, $0 + 0.002 * max(0, now - offsetUpdated)) } ?? observed
         self.offset = offset
         offsetUpdated = now
+        if adaptive { adapt(lateness: observed - offset, at: now) }
         var time = packet.timestamp + offset + delay
         if let last = samples.last { time = max(time, last.time) }
         samples.append(Sample(time: time, x: packet.x, y: packet.y))
         return observed - offset
+    }
+
+    private mutating func adapt(lateness: Double, at now: Double) {
+        recentLateness.append(lateness)
+        if recentLateness.count > Self.latenessWindow { recentLateness.removeFirst() }
+        let strokeStart = now - lastReceived > Self.strokeGap
+        lastReceived = now
+        guard recentLateness.count >= Self.minimumSamples else { return }
+        let sorted = recentLateness.sorted()
+        let p95 = sorted[Int(Double(sorted.count - 1) * 0.95)]
+        let target = min(max(p95 + Self.delayMargin, Self.minimumDelay), Self.maximumDelay)
+        if strokeStart { delay = target }
+        else if target > delay { delay = min(target, delay + Self.maximumRiseStep) }
     }
 
     /// Moves the playout cursor to `now` and returns the delta to apply.

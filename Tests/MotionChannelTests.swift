@@ -84,6 +84,35 @@ final class MotionChannelTests: XCTestCase {
         XCTAssertEqual(playout.advance(to: playAt).dx, 40, accuracy: 1e-9)
     }
 
+    func testDelayShrinksOnSteadyLinkAtNextStroke() {
+        var playout = MotionPlayout()
+        // 60 samples every 5 ms, each delivered 2 ms after sending.
+        for index in 0..<60 {
+            let sent = 1 + Double(index) * 0.005
+            playout.receive(packet(UInt32(index + 1), at: sent, x: Double(index)), at: sent + 4.002)
+        }
+        // Within the stroke the delay never drops.
+        XCTAssertEqual(playout.delay, MotionChannel.playoutDelay)
+        playout.receive(packet(61, at: 3, x: 61), at: 7.002)
+        XCTAssertEqual(playout.delay, MotionPlayout.minimumDelay, accuracy: 1e-9)
+    }
+
+    func testDelayRisesGraduallyWithinStrokeOnJitter() {
+        var playout = MotionPlayout()
+        var delays: [Double] = []
+        for index in 0..<120 {
+            let sent = 1 + Double(index) * 0.005
+            // Every other sample arrives 40 ms late.
+            let lateness = index.isMultiple(of: 2) ? 0.0 : 0.04
+            playout.receive(packet(UInt32(index + 1), at: sent, x: Double(index)), at: sent + 4 + lateness)
+            delays.append(playout.delay)
+        }
+        XCTAssertEqual(playout.delay, 0.044, accuracy: 0.001)
+        for (previous, next) in zip(delays, delays.dropFirst()) {
+            XCTAssertLessThanOrEqual(next - previous, 0.002 + 1e-9)
+        }
+    }
+
     func testMotionMessagesValidate() throws {
         let offer = ControlMessage.motionOffer(key: Data(repeating: 1, count: 32))
         let sync = ControlMessage.motionSync(seq: 7, x: 1.5, y: -2)

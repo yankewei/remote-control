@@ -23,6 +23,7 @@ struct ControllerView: View {
                 TouchpadCanvas(
                     sensitivity: connection.sensitivity,
                     send: connection.send,
+                    move: connection.movePointer,
                     isConnected: connection.connectedName != nil,
                     inputAllowed: connection.inputAllowed,
                     cornerRadius: landscape ? 28 : 38,

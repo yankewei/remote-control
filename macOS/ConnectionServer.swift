@@ -7,11 +7,15 @@ import CryptoKit
 /// Rolling 2-second view of Bluetooth motion delivery, to tell link jitter apart from other causes.
 struct MotionStats {
     private var lateness: [Double] = []
+    private var lateCount = 0
+    private var delay = 0.0
     private var firstSeq: UInt32?
     private var lastSeq: UInt32?
 
-    mutating func record(seq: UInt32, excessLatency: Double) {
+    mutating func record(seq: UInt32, excessLatency: Double, playoutDelay: Double) {
         lateness.append(excessLatency)
+        if excessLatency > playoutDelay { lateCount += 1 }
+        delay = playoutDelay
         if firstSeq == nil { firstSeq = seq }
         lastSeq = seq
     }
@@ -25,8 +29,9 @@ struct MotionStats {
         let worst = (sorted.last ?? 0) * 1000
         let expected = Double(lastSeq - firstSeq + 1)
         let loss = max(0, 1 - Double(sorted.count) / expected) * 100
-        let lateShare = Double(sorted.filter { $0 > MotionChannel.playoutDelay }.count) / Double(sorted.count) * 100
-        return String(format: "蓝牙 · 抖动 p95 %.0f ms · 最大 %.0f ms · 丢包 %.1f%% · 超出缓冲 %.0f%%", p95, worst, loss, lateShare)
+        let lateShare = Double(lateCount) / Double(sorted.count) * 100
+        return String(format: "蓝牙 · 抖动 p95 %.0f ms · 最大 %.0f ms · 丢包 %.1f%% · 缓冲 %.0f ms · 超出 %.0f%%",
+                      p95, worst, loss, delay * 1000, lateShare)
     }
 }
 
@@ -121,7 +126,7 @@ final class ConnectionServer {
             motionStatus = "蓝牙已连接"
         }
         if let excess = input.receiveMotion(packet) {
-            motionStats.record(seq: packet.seq, excessLatency: excess)
+            motionStats.record(seq: packet.seq, excessLatency: excess, playoutDelay: input.playoutDelay)
         }
     }
 

@@ -10,15 +10,15 @@ import CryptoKit
 private struct MotionSession {
     let key: SymmetricKey
     var ready = false
-    var dirty = false
     var seq: UInt32 = 0
     var syncedSeq: UInt32 = 0
     var x = 0.0
     var y = 0.0
     var probe: Timer?
 
-    func seal(_ kind: MotionPacket.Kind) -> Data? {
-        try? MotionPacket(kind: kind, seq: seq, timestamp: ProcessInfo.processInfo.systemUptime, x: x, y: y).seal(with: key)
+    /// `timestamp` is when the motion happened (a touch sample's time), on the uptime clock.
+    func seal(_ kind: MotionPacket.Kind, at timestamp: TimeInterval = ProcessInfo.processInfo.systemUptime) -> Data? {
+        try? MotionPacket(kind: kind, seq: seq, timestamp: timestamp, x: x, y: y).seal(with: key)
     }
 }
 
@@ -385,14 +385,22 @@ final class MacConnection {
         return current
     }
 
+    /// One touch sample of pointer motion. Over Bluetooth it goes out at once as its own datagram
+    /// stamped with the touch time, so the Mac replays the stroke at the finger's pace.
+    func movePointer(dx: Double, dy: Double, at time: TimeInterval) {
+        guard connectedName != nil, inputAllowed else { return }
+        guard motionOverBluetooth else { send(.move(dx: dx, dy: dy)); return }
+        motion?.x += dx
+        motion?.y += dy
+        motion?.seq &+= 1
+        sendMotion(.motion, at: time)
+    }
+
     func send(_ message: ControlMessage) {
         guard connectedName != nil, inputAllowed else { return }
         switch message {
         case let .move(dx, dy) where motionOverBluetooth:
-            motion?.x += dx
-            motion?.y += dy
-            motion?.dirty = true
-            scheduleFlush()
+            movePointer(dx: dx, dy: dy, at: ProcessInfo.processInfo.systemUptime)
         case let .move(dx, dy):
             // Bluetooth is off, not allowed or still connecting: Wi-Fi keeps the pointer usable.
             let current = coalescedMove ?? (0, 0)
@@ -432,8 +440,8 @@ final class MacConnection {
         }
     }
 
-    private func sendMotion(_ kind: MotionPacket.Kind) {
-        guard let data = motion?.seal(kind) else { return }
+    private func sendMotion(_ kind: MotionPacket.Kind, at time: TimeInterval = ProcessInfo.processInfo.systemUptime) {
+        guard let data = motion?.seal(kind, at: time) else { return }
         bluetooth.send(data)
     }
 
@@ -456,13 +464,7 @@ final class MacConnection {
         guard connectedName != nil, inputAllowed else {
             coalescedScroll = nil
             coalescedMove = nil
-            motion?.dirty = false
             return
-        }
-        if motion?.dirty == true {
-            motion?.dirty = false
-            motion?.seq &+= 1
-            sendMotion(.motion)
         }
         if let move = coalescedMove {
             coalescedMove = nil

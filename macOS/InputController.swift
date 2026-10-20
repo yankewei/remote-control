@@ -1,10 +1,19 @@
 import AppKit
 import ApplicationServices
+import QuartzCore
 
 private func inputDisplayConfigurationChanged(_: CGDirectDisplayID, _: CGDisplayChangeSummaryFlags, _ userInfo: UnsafeMutableRawPointer?) {
     guard let userInfo else { return }
     let controller = Unmanaged<InputController>.fromOpaque(userInfo).takeUnretainedValue()
     DispatchQueue.main.async { [weak controller] in controller?.refreshDisplays() }
+}
+
+/// CADisplayLink needs an Objective-C target; this one forwards to a closure without retaining
+/// the controller.
+private final class DisplayLinkTarget: NSObject {
+    let fire: () -> Void
+    init(_ fire: @escaping () -> Void) { self.fire = fire }
+    @objc func step(_ link: CADisplayLink) { fire() }
 }
 
 final class InputController {
@@ -18,11 +27,11 @@ final class InputController {
     var onError: ((String) -> Void)?
     private var displayBounds: [CGRect] = []
     private static let clipboardRestoreDelay: TimeInterval = 0.8
-    // Bluetooth motion is replayed on its original timeline by `playout`, sampled on a 120 Hz
-    // tick so the cursor glides at a steady rate.
-    private static let smoothingTick: TimeInterval = 1.0 / 120
+    // Bluetooth motion is replayed on its original timeline by `playout`, sampled once per refresh
+    // of the display under the cursor so each frame shows exactly one step.
     private var playout = MotionPlayout()
-    private var smoothingTimer: Timer?
+    private var displayLink: CADisplayLink?
+    var playoutDelay: Double { playout.delay }
     // Posted events apply asynchronously, so reading the system cursor right after posting can
     // return a stale position and swallow motion. Track our own position while moving.
     private var cursor: CGPoint?
@@ -123,11 +132,29 @@ final class InputController {
     }
 
     private func startSmoothing() {
-        guard smoothingTimer == nil else { return }
-        let timer = Timer(timeInterval: Self.smoothingTick, repeats: true) { [weak self] _ in self?.tick() }
-        RunLoop.main.add(timer, forMode: .common)
-        smoothingTimer = timer
+        guard displayLink == nil else { return }
+        let target = DisplayLinkTarget { [weak self] in self?.tick() }
+        guard let link = screenUnderCursor()?.displayLink(target: target, selector: #selector(DisplayLinkTarget.step(_:))) else {
+            tick()
+            return
+        }
+        link.add(to: .main, forMode: .common)
+        displayLink = link
         tick()
+    }
+
+    /// The display link follows one screen's refresh; pick the one the pointer is on when a
+    /// stroke starts.
+    private func screenUnderCursor() -> NSScreen? {
+        var display: CGDirectDisplayID = 0
+        var count: UInt32 = 0
+        if CGGetDisplaysWithPoint(currentLocation(), 1, &display, &count) == .success, count > 0,
+           let screen = NSScreen.screens.first(where: {
+               ($0.deviceDescription[NSDeviceDescriptionKey("NSScreenNumber")] as? NSNumber)?.uint32Value == display
+           }) {
+            return screen
+        }
+        return NSScreen.main ?? NSScreen.screens.first
     }
 
     private func tick() {
@@ -137,8 +164,8 @@ final class InputController {
     }
 
     private func stopSmoothing() {
-        smoothingTimer?.invalidate()
-        smoothingTimer = nil
+        displayLink?.invalidate()
+        displayLink = nil
     }
 
     private func currentLocation() -> CGPoint {
