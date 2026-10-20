@@ -14,6 +14,11 @@ struct PressableButtonStyle: ButtonStyle {
             .scaleEffect(configuration.isPressed && !reduceMotion ? 0.96 : 1)
             .opacity(configuration.isPressed ? 0.82 : 1)
             .animation(reduceMotion ? .easeOut(duration: 0.12) : .spring(response: 0.2, dampingFraction: 0.8), value: configuration.isPressed)
+            .onChange(of: configuration.isPressed) { _, pressed in
+                guard pressed else { return }
+                TrackpadHaptics.light.impactOccurred(intensity: 0.5)
+                TrackpadHaptics.light.prepare()
+            }
     }
 }
 
@@ -41,6 +46,7 @@ final class TouchSurface: UIView, UIGestureRecognizerDelegate {
     private var dragging = false
     private var wasEnabled = true
     private let oneFinger = UIPanGestureRecognizer()
+    private var lastPointer: CGPoint?
     private let twoFingers = UIPanGestureRecognizer()
     private let hold = UILongPressGestureRecognizer()
     private let observer = TouchObserverGestureRecognizer()
@@ -102,13 +108,21 @@ final class TouchSurface: UIView, UIGestureRecognizerDelegate {
     }
 
     @objc private func movePointer(_ gesture: UIPanGestureRecognizer) {
-        if gesture.state == .changed {
-            let delta = gesture.translation(in: self)
-            let velocity = gesture.velocity(in: self)
-            let gain = sensitivity * min(2, 1 + hypot(velocity.x, velocity.y) / 1800)
+        // Measure from the finger's touch-down point rather than `translation`: the pan's
+        // ~10pt start threshold would otherwise be dropped, making small moves feel dead.
+        let location = gesture.location(in: self)
+        switch gesture.state {
+        case .began, .changed:
+            let origin = lastPointer ?? location
+            lastPointer = location
+            let delta = CGPoint(x: location.x - origin.x, y: location.y - origin.y)
+            let speed = hypot(gesture.velocity(in: self).x, gesture.velocity(in: self).y)
+            // Slow strokes stay precise (≈1×); fast flicks reach up to 3.5× to cross the screen.
+            let gain = sensitivity * (1 + min(speed / 600, 2.5))
             send(.move(dx: ControlMessage.clampDelta(delta.x * gain), dy: ControlMessage.clampDelta(delta.y * gain)))
+        default:
+            lastPointer = nil
         }
-        gesture.setTranslation(.zero, in: self)
     }
 
     @objc private func scroll(_ gesture: UIPanGestureRecognizer) {
@@ -144,6 +158,11 @@ final class TouchSurface: UIView, UIGestureRecognizerDelegate {
 
     private func notifyTouchState() {
         onTouch?(observer.latest, dragging)
+    }
+
+    func gestureRecognizer(_ gestureRecognizer: UIGestureRecognizer, shouldReceive touch: UITouch) -> Bool {
+        if gestureRecognizer === oneFinger, oneFinger.state == .possible { lastPointer = touch.location(in: self) }
+        return true
     }
 
     func gestureRecognizer(_ gestureRecognizer: UIGestureRecognizer, shouldRecognizeSimultaneouslyWith other: UIGestureRecognizer) -> Bool {

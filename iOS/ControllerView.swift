@@ -343,6 +343,7 @@ struct ControllerView: View {
                         .background(Circle().fill(accent))
                         .shadow(color: accent.opacity(0.35), radius: 8, y: 3)
                 }
+                .buttonStyle(PressableButtonStyle(reduceMotion: reduceMotion))
                 .accessibilityLabel("发送文字到 Mac")
                 .disabled(connection.draft.isEmpty || connection.sendingText || speech.recording || speech.finishing || connection.connectedName == nil || !connection.inputAllowed)
             }
