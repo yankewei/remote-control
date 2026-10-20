@@ -290,7 +290,6 @@ struct TouchpadCanvas: View {
                 .strokeBorder(.white.opacity(0.12), lineWidth: 1)
         )
         .shadow(color: .black.opacity(0.30), radius: 26, y: 14)
-        .onAppear { TrackpadHaptics.prepare() }
     }
 
     private func handleTouch(_ points: [TrackpadTouch], _ isDragging: Bool) {
@@ -300,8 +299,6 @@ struct TouchpadCanvas: View {
         let added = newSpots.filter { !oldIDs.contains($0.id) }
 
         if !added.isEmpty {
-            TrackpadHaptics.soft.prepare()
-            TrackpadHaptics.soft.impactOccurred(intensity: 0.55)
             let rippleColor = color(count: points.count, dragging: isDragging)
             for spot in added {
                 let ripple = TouchRipple(point: spot.point, color: rippleColor)
@@ -314,13 +311,7 @@ struct TouchpadCanvas: View {
             hasTouched = true
         }
 
-        if isDragging != dragging {
-            if isDragging {
-                TrackpadHaptics.light.prepare()
-                TrackpadHaptics.light.impactOccurred(intensity: 0.7)
-            }
-            dragging = isDragging
-        }
+        dragging = isDragging
 
         if points.isEmpty {
             isTouching = false
@@ -347,12 +338,13 @@ struct GlassSurface: View {
         let shape = RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
         Group {
             if reduceTransparency {
-                shape.fill(Color.white)
+                shape.fill(Color(white: 0.12))
             } else {
                 shape.fill(.ultraThinMaterial)
-                    .overlay(shape.fill(Color.white.opacity(0.30)))
+                    .overlay(shape.fill(Color.white.opacity(0.05)))
             }
         }
+        .overlay(shape.strokeBorder(.white.opacity(0.12), lineWidth: 0.6))
     }
 }
 
@@ -578,12 +570,8 @@ private struct ConnectButton: View {
     }
 }
 
+// Buttons only: the touchpad itself stays silent, since a tap felt on the phone before the
+// Mac cursor reacts makes network latency more noticeable.
 private enum TrackpadHaptics {
-    static let soft = UIImpactFeedbackGenerator(style: .soft)
     static let light = UIImpactFeedbackGenerator(style: .light)
-
-    static func prepare() {
-        soft.prepare()
-        light.prepare()
-    }
 }

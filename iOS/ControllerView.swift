@@ -1,8 +1,8 @@
 import SwiftUI
 
-private let ink = Color(red: 0.12, green: 0.20, blue: 0.29)
+private let ink = Color.white
 private let accent = Color(red: 0.18, green: 0.37, blue: 0.78)
-private let paper = Color(red: 0.93, green: 0.95, blue: 0.98)
+private let paper = Color(red: 0.02, green: 0.03, blue: 0.06)
 
 struct ControllerView: View {
     @Bindable var connection: MacConnection
@@ -56,7 +56,7 @@ struct ControllerView: View {
             }
             .background(paper.ignoresSafeArea())
         }
-        .preferredColorScheme(.light)
+        .preferredColorScheme(.dark)
         .sheet(isPresented: $showConnection) { ConnectionView(connection: connection, speech: speech) }
         .sheet(isPresented: $editing) { TextEntryView(connection: connection) }
         .onChange(of: holdingMic) { _, pressed in
@@ -94,7 +94,7 @@ struct ControllerView: View {
     }
 
     private var controlBackground: Color {
-        Color.white.opacity(reduceTransparency ? 1 : 0.78)
+        reduceTransparency ? Color(white: 0.22) : Color.white.opacity(0.10)
     }
 
     private func flashSentToast() {
@@ -111,14 +111,12 @@ struct ControllerView: View {
             .padding(.horizontal, 14)
             .padding(.vertical, 8)
             .background { GlassSurface(cornerRadius: 14, reduceTransparency: reduceTransparency) }
-            .overlay(
-                RoundedRectangle(cornerRadius: 14, style: .continuous)
-                    .strokeBorder(.white.opacity(0.5), lineWidth: 0.5)
-            )
     }
 
     private func beginSpeech() {
-        guard !connection.sendingText else { return }
+        // While the previous session is still finishing, `draft` already holds its partial
+        // transcript; taking it as the base would duplicate that text when the final one lands.
+        guard !connection.sendingText, !speech.recording, !speech.preparing, !speech.finishing else { return }
         draftBeforeSpeech = connection.draft
         speech.begin()
     }
@@ -147,7 +145,7 @@ struct ControllerView: View {
                     .font(.system(landscape ? .subheadline : .headline, design: .rounded, weight: .semibold))
                     .foregroundStyle(ink)
                     .lineLimit(1)
-                Text(connection.status)
+                Text(connection.connectedName == nil ? connection.status : connection.bluetoothNotice ?? connection.status)
                     .font(.caption2)
                     .foregroundStyle(ink.opacity(0.55))
                     .lineLimit(landscape ? 1 : 2)
@@ -158,7 +156,7 @@ struct ControllerView: View {
                     .font(.system(.subheadline, weight: .semibold))
                     .foregroundStyle(ink)
                     .frame(width: 36, height: 36)
-                    .background(Color.white.opacity(reduceTransparency ? 1 : 0.55), in: Circle())
+                    .background(reduceTransparency ? Color(white: 0.22) : Color.white.opacity(0.12), in: Circle())
             }
             .buttonStyle(PressableButtonStyle(reduceMotion: reduceMotion))
             .accessibilityLabel("连接与设置")
@@ -166,11 +164,7 @@ struct ControllerView: View {
         .padding(.horizontal, 14)
         .padding(.vertical, 8)
         .background { GlassSurface(cornerRadius: 22, reduceTransparency: reduceTransparency) }
-        .overlay(
-            RoundedRectangle(cornerRadius: 22, style: .continuous)
-                .strokeBorder(.white.opacity(0.55), lineWidth: 0.6)
-        )
-        .shadow(color: .black.opacity(0.12), radius: 12, y: 5)
+        .shadow(color: .black.opacity(0.35), radius: 12, y: 5)
     }
 
     @ViewBuilder
@@ -204,11 +198,7 @@ struct ControllerView: View {
         }
         .padding(10)
         .background { GlassSurface(cornerRadius: 24, reduceTransparency: reduceTransparency) }
-        .overlay(
-            RoundedRectangle(cornerRadius: 24, style: .continuous)
-                .strokeBorder(.white.opacity(0.55), lineWidth: 0.75)
-        )
-        .shadow(color: .black.opacity(0.18), radius: 18, y: 8)
+        .shadow(color: .black.opacity(0.45), radius: 18, y: 8)
     }
 
     private var leftButton: some View {
@@ -229,7 +219,7 @@ struct ControllerView: View {
         }
         .buttonStyle(PressableButtonStyle(reduceMotion: reduceMotion))
         .disabled(!inputEnabled)
-        .opacity(inputEnabled ? 1 : 0.35)
+        .opacity(inputEnabled ? 1 : 0.4)
     }
 
     private var keyboardButton: some View {
@@ -242,7 +232,7 @@ struct ControllerView: View {
         }
         .buttonStyle(PressableButtonStyle(reduceMotion: reduceMotion))
         .disabled(!inputEnabled)
-        .opacity(inputEnabled ? 1 : 0.35)
+        .opacity(inputEnabled ? 1 : 0.4)
         .accessibilityLabel("输入文字")
     }
 
@@ -252,7 +242,7 @@ struct ControllerView: View {
         }
         .buttonStyle(PressableButtonStyle(reduceMotion: reduceMotion))
         .disabled(!inputEnabled)
-        .opacity(inputEnabled ? 1 : 0.35)
+        .opacity(inputEnabled ? 1 : 0.4)
         .accessibilityLabel(keyAccessibilityLabel(key))
     }
 
@@ -355,11 +345,7 @@ struct ControllerView: View {
         }
         .padding(12)
         .background { GlassSurface(cornerRadius: 20, reduceTransparency: reduceTransparency) }
-        .overlay(
-            RoundedRectangle(cornerRadius: 20, style: .continuous)
-                .strokeBorder(.white.opacity(0.5), lineWidth: 0.5)
-        )
-        .shadow(color: .black.opacity(0.12), radius: 12, y: 6)
+        .shadow(color: .black.opacity(0.35), radius: 12, y: 6)
     }
 
     private func speechNoticeView(_ text: String) -> some View {
@@ -370,10 +356,6 @@ struct ControllerView: View {
             .padding(.horizontal, 12)
             .padding(.vertical, 7)
             .background { GlassSurface(cornerRadius: 14, reduceTransparency: reduceTransparency) }
-            .overlay(
-                RoundedRectangle(cornerRadius: 14, style: .continuous)
-                    .strokeBorder(.white.opacity(0.5), lineWidth: 0.5)
-            )
     }
 }
 

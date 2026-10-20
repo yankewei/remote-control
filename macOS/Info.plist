@@ -22,6 +22,8 @@
 	<string>1</string>
 	<key>LSUIElement</key>
 	<true/>
+	<key>NSBluetoothAlwaysUsageDescription</key>
+	<string>通过蓝牙接收已配对 iPhone 的鼠标移动，减少 Wi-Fi 抖动造成的卡顿。</string>
 	<key>NSBonjourServices</key>
 	<array>
 		<string>_remotecontrol._tcp</string>

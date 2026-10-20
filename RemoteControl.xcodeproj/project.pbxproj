@@ -21,7 +21,9 @@
 		9D485CE61AB9CB59ABAA6E16 /* ControllerView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 694F390BBFB9A4105119B3E9 /* ControllerView.swift */; };
 		9F6F04B7D0D95497F8169074 /* TextChunker.swift in Sources */ = {isa = PBXBuildFile; fileRef = E3B5B37C532EF9809B3E2D9E /* TextChunker.swift */; };
 		AB527B5E9AF5BB03667014D1 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 0CC813B3E6563CF507ABAF64 /* Assets.xcassets */; };
+		B12142C1CD7301857E52CD56 /* BluetoothMotionSender.swift in Sources */ = {isa = PBXBuildFile; fileRef = 84B5C154BC90CCA3B7C4BF22 /* BluetoothMotionSender.swift */; };
 		C8AF0B7B0500E4A43FF8DDF6 /* PrivacyInfo.xcprivacy in Resources */ = {isa = PBXBuildFile; fileRef = 87B026C3053BDB527BFA2D11 /* PrivacyInfo.xcprivacy */; };
+		D3C48B6DC6A69DCA188C3590 /* BluetoothMotionReceiver.swift in Sources */ = {isa = PBXBuildFile; fileRef = D11F3003ED8DC8B90F97E8C1 /* BluetoothMotionReceiver.swift */; };
 		DB2F9A99539B1AAFD197A0AB /* TrackpadView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 63FB9F71CC744C9D0B9D87E3 /* TrackpadView.swift */; };
 		DD63D2D49B3A358AAE7E1389 /* ControlMessage.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4A1936E97E6FDB3619AB377E /* ControlMessage.swift */; };
 		FC579C9D35321837B96E253D /* SecureConnection.swift in Sources */ = {isa = PBXBuildFile; fileRef = B3DA90BB1DA926C4DB7F6DF5 /* SecureConnection.swift */; };
@@ -39,10 +41,12 @@
 		694F390BBFB9A4105119B3E9 /* ControllerView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ControllerView.swift; sourceTree = "<group>"; };
 		7CFE4CF5D084C0CA0BB82F60 /* RemoteControlMacApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RemoteControlMacApp.swift; sourceTree = "<group>"; };
 		84907C5C03C3D6DF86D4253E /* SpeechInput.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SpeechInput.swift; sourceTree = "<group>"; };
-		87B026C3053BDB527BFA2D11 /* PrivacyInfo.xcprivacy */ = {isa = PBXFileReference; lastKnownFileType = text.xml; path = PrivacyInfo.xcprivacy; sourceTree = "<group>"; };
+		84B5C154BC90CCA3B7C4BF22 /* BluetoothMotionSender.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BluetoothMotionSender.swift; sourceTree = "<group>"; };
+		87B026C3053BDB527BFA2D11 /* PrivacyInfo.xcprivacy */ = {isa = PBXFileReference; path = PrivacyInfo.xcprivacy; sourceTree = "<group>"; };
 		B3DA90BB1DA926C4DB7F6DF5 /* SecureConnection.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SecureConnection.swift; sourceTree = "<group>"; };
 		BC72F501FC1205FE864CAAA1 /* InputController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = InputController.swift; sourceTree = "<group>"; };
-		DF6F831755BBDAA7D4A65987 /* RemoteControl.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = RemoteControl.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		D11F3003ED8DC8B90F97E8C1 /* BluetoothMotionReceiver.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BluetoothMotionReceiver.swift; sourceTree = "<group>"; };
+		DF6F831755BBDAA7D4A65987 /* RemoteControl.app */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.application; path = RemoteControl.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		E3608BED1740653B64DEFCFA /* RemoteControlApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RemoteControlApp.swift; sourceTree = "<group>"; };
 		E3B5B37C532EF9809B3E2D9E /* TextChunker.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TextChunker.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
@@ -81,6 +85,7 @@
 		D1BCB30C5012D8D934E0E4BA /* iOS */ = {
 			isa = PBXGroup;
 			children = (
+				84B5C154BC90CCA3B7C4BF22 /* BluetoothMotionSender.swift */,
 				694F390BBFB9A4105119B3E9 /* ControllerView.swift */,
 				5FEA2C70774A3C7CA88B9793 /* Info.plist */,
 				54D443C0972D3765749BCC8B /* MacConnection.swift */,
@@ -94,6 +99,7 @@
 		D34F2F97A66251462065F46E /* macOS */ = {
 			isa = PBXGroup;
 			children = (
+				D11F3003ED8DC8B90F97E8C1 /* BluetoothMotionReceiver.swift */,
 				1974A29BF67996665B05C7D3 /* ConnectionServer.swift */,
 				48E98D900F299FF3A7C09242 /* Info.plist */,
 				BC72F501FC1205FE864CAAA1 /* InputController.swift */,
@@ -157,12 +163,14 @@
 			isa = PBXProject;
 			attributes = {
 				BuildIndependentTargetsInParallel = YES;
-				LastUpgradeCheck = 2710;
+				LastUpgradeCheck = 1430;
 				TargetAttributes = {
 					1D783117E46740BCF2804575 = {
+						DevelopmentTeam = 3BUD4GCZCQ;
 						ProvisioningStyle = Automatic;
 					};
 					C041F03AE430BF16AAB32BBD = {
+						DevelopmentTeam = 3BUD4GCZCQ;
 						ProvisioningStyle = Automatic;
 					};
 				};
@@ -213,6 +221,7 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				D3C48B6DC6A69DCA188C3590 /* BluetoothMotionReceiver.swift in Sources */,
 				0A1B4334C569F58060B37DB7 /* ConnectionServer.swift in Sources */,
 				2FB3411DAF0848FB3F629C1A /* ControlMessage.swift in Sources */,
 				3ED7C4C481B2F50572551117 /* InputController.swift in Sources */,
@@ -226,6 +235,7 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				B12142C1CD7301857E52CD56 /* BluetoothMotionSender.swift in Sources */,
 				DD63D2D49B3A358AAE7E1389 /* ControlMessage.swift in Sources */,
 				9D485CE61AB9CB59ABAA6E16 /* ControllerView.swift in Sources */,
 				8DA3909296660F7C4C6EDF5F /* MacConnection.swift in Sources */,
@@ -245,7 +255,6 @@
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				COMBINE_HIDPI_IMAGES = YES;
-				DEAD_CODE_STRIPPING = YES;
 				ENABLE_APP_SANDBOX = NO;
 				INFOPLIST_FILE = macOS/Info.plist;
 				LD_RUNPATH_SEARCH_PATHS = (
@@ -292,8 +301,8 @@
 				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
 				CODE_SIGN_STYLE = Automatic;
 				COPY_PHASE_STRIP = NO;
-				DEAD_CODE_STRIPPING = YES;
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				DEVELOPMENT_TEAM = 3BUD4GCZCQ;
 				ENABLE_NS_ASSERTIONS = NO;
 				ENABLE_STRICT_OBJC_MSGSEND = YES;
 				ENABLE_USER_SCRIPT_SANDBOXING = YES;
@@ -310,7 +319,6 @@
 				MTL_ENABLE_DEBUG_INFO = NO;
 				MTL_FAST_MATH = YES;
 				PRODUCT_NAME = "$(TARGET_NAME)";
-				STRING_CATALOG_GENERATE_SYMBOLS = YES;
 				SWIFT_COMPILATION_MODE = wholemodule;
 				SWIFT_OPTIMIZATION_LEVEL = "-O";
 				SWIFT_VERSION = 5.0;
@@ -322,7 +330,6 @@
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CODE_SIGN_IDENTITY = "iPhone Developer";
-				DEVELOPMENT_TEAM = 3BUD4GCZCQ;
 				INFOPLIST_FILE = iOS/Info.plist;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
@@ -340,7 +347,6 @@
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CODE_SIGN_IDENTITY = "iPhone Developer";
-				DEVELOPMENT_TEAM = 3BUD4GCZCQ;
 				INFOPLIST_FILE = iOS/Info.plist;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
@@ -358,7 +364,6 @@
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				COMBINE_HIDPI_IMAGES = YES;
-				DEAD_CODE_STRIPPING = YES;
 				ENABLE_APP_SANDBOX = NO;
 				INFOPLIST_FILE = macOS/Info.plist;
 				LD_RUNPATH_SEARCH_PATHS = (
@@ -405,8 +410,8 @@
 				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
 				CODE_SIGN_STYLE = Automatic;
 				COPY_PHASE_STRIP = NO;
-				DEAD_CODE_STRIPPING = YES;
 				DEBUG_INFORMATION_FORMAT = dwarf;
+				DEVELOPMENT_TEAM = 3BUD4GCZCQ;
 				ENABLE_STRICT_OBJC_MSGSEND = YES;
 				ENABLE_TESTABILITY = YES;
 				ENABLE_USER_SCRIPT_SANDBOXING = YES;
@@ -430,7 +435,6 @@
 				MTL_FAST_MATH = YES;
 				ONLY_ACTIVE_ARCH = YES;
 				PRODUCT_NAME = "$(TARGET_NAME)";
-				STRING_CATALOG_GENERATE_SYMBOLS = YES;
 				SWIFT_ACTIVE_COMPILATION_CONDITIONS = DEBUG;
 				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
 				SWIFT_VERSION = 5.0;

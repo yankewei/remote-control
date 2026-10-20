@@ -20,6 +20,9 @@ final class SpeechInput {
     private var holding = false
     private var finishTimeout: Timer?
     private var interruptionObserver: NSObjectProtocol?
+    // AVAudioSession activation blocks; keep it off the main thread. Serial so a deactivate
+    // queued by cancel() always runs after an in-flight activate.
+    private let sessionQueue = DispatchQueue(label: "SpeechInput.audioSession")
 
     init() {
         interruptionObserver = NotificationCenter.default.addObserver(forName: AVAudioSession.interruptionNotification, object: nil, queue: .main) { [weak self] notification in
@@ -54,9 +57,9 @@ final class SpeechInput {
                 self.status = "此设备不支持离线中文识别，可在连接设置中允许在线识别"; return
             }
             do {
-                let session = AVAudioSession.sharedInstance()
-                try session.setCategory(.record, mode: .measurement, options: .duckOthers)
-                try session.setActive(true, options: .notifyOthersOnDeactivation)
+                try await self.activateSession()
+                guard self.sessionID == id else { return }
+                guard self.holding else { self.deactivateSession(); return }
                 let request = SFSpeechAudioBufferRecognitionRequest()
                 request.shouldReportPartialResults = true
                 request.requiresOnDeviceRecognition = self.offlineOnly
@@ -113,7 +116,26 @@ final class SpeechInput {
         engine.stop()
         if tapInstalled { engine.inputNode.removeTap(onBus: 0); tapInstalled = false }
         recording = false
-        try? AVAudioSession.sharedInstance().setActive(false, options: .notifyOthersOnDeactivation)
+        deactivateSession()
+    }
+
+    private func activateSession() async throws {
+        try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Void, Error>) in
+            sessionQueue.async {
+                do {
+                    let session = AVAudioSession.sharedInstance()
+                    try session.setCategory(.record, mode: .measurement, options: .duckOthers)
+                    try session.setActive(true, options: .notifyOthersOnDeactivation)
+                    continuation.resume()
+                } catch { continuation.resume(throwing: error) }
+            }
+        }
+    }
+
+    private func deactivateSession() {
+        sessionQueue.async {
+            try? AVAudioSession.sharedInstance().setActive(false, options: .notifyOthersOnDeactivation)
+        }
     }
 
     func cancel() {
