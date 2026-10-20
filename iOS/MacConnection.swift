@@ -2,6 +2,25 @@ import Foundation
 import Network
 import Observation
 import UIKit
+import CryptoKit
+
+/// One Bluetooth motion session (see MotionPacket). Until the Mac confirms a datagram arrived
+/// (`ready`), and whenever the link is down, moves go over the Wi-Fi connection instead and are
+/// not added to the running total.
+private struct MotionSession {
+    let key: SymmetricKey
+    var ready = false
+    var dirty = false
+    var seq: UInt32 = 0
+    var syncedSeq: UInt32 = 0
+    var x = 0.0
+    var y = 0.0
+    var probe: Timer?
+
+    func seal(_ kind: MotionPacket.Kind) -> Data? {
+        try? MotionPacket(kind: kind, seq: seq, timestamp: ProcessInfo.processInfo.systemUptime, x: x, y: y).seal(with: key)
+    }
+}
 
 struct DiscoveredMac: Identifiable {
     let id: String
@@ -40,9 +59,14 @@ final class MacConnection {
     private var protocolFailures = 0
     private var pendingText: UUID?
     private var textTimeout: Timer?
-    private var coalescedMove: (dx: Double, dy: Double)?
     private var coalescedScroll: (dx: Double, dy: Double)?
+    private var coalescedMove: (dx: Double, dy: Double)?
     private var flushScheduled = false
+    private var motion: MotionSession?
+    private let bluetooth = BluetoothMotionSender()
+    /// Why the pointer cannot move right now (Bluetooth off, not allowed, still connecting), or nil.
+    var bluetoothNotice: String?
+    private var motionOverBluetooth: Bool { (motion?.ready ?? false) && bluetooth.isLinked }
 
     var isConnecting: Bool {
         connectedName == nil && target != nil && wantsConnection && (channel != nil || reconnect != nil)
@@ -225,6 +249,11 @@ final class MacConnection {
                     self.protocolFailures = 0
                     self.status = allowed ? "已连接 · 加密连接" : "已连接，请在 Mac 开启辅助功能权限"
                 } catch { channel?.close("无法保存配对凭证，请重试", retry: false) }
+            case let .motionOffer(key):
+                self.startMotion(key: key)
+            case .motionReady:
+                self.motion?.ready = true
+                self.motion?.probe?.invalidate()
             case let .textAccepted(id):
                 guard self.pendingText == id else { return }
                 self.pendingText = nil
@@ -261,8 +290,9 @@ final class MacConnection {
             self.sendingText = false
             self.pendingText = nil
             self.textTimeout?.invalidate()
-            self.coalescedMove = nil
             self.coalescedScroll = nil
+            self.coalescedMove = nil
+            self.stopMotion()
             self.status = end.message
             guard self.active, self.wantsConnection else { return }
             if end.protocolError {
@@ -358,7 +388,13 @@ final class MacConnection {
     func send(_ message: ControlMessage) {
         guard connectedName != nil, inputAllowed else { return }
         switch message {
+        case let .move(dx, dy) where motionOverBluetooth:
+            motion?.x += dx
+            motion?.y += dy
+            motion?.dirty = true
+            scheduleFlush()
         case let .move(dx, dy):
+            // Bluetooth is off, not allowed or still connecting: Wi-Fi keeps the pointer usable.
             let current = coalescedMove ?? (0, 0)
             coalescedMove = (ControlMessage.clampDelta(current.dx + dx), ControlMessage.clampDelta(current.dy + dy))
             scheduleFlush()
@@ -368,8 +404,45 @@ final class MacConnection {
             scheduleFlush()
         default:
             flushCoalesced()
+            syncMotion()
             channel?.send(message)
         }
+    }
+
+    /// Sends the Bluetooth total ahead of an action on the ordered stream, so it lands where the
+    /// pointer ends up even if datagrams are late or lost.
+    private func syncMotion() {
+        guard let motion, motion.ready, motion.seq != motion.syncedSeq else { return }
+        self.motion?.syncedSeq = motion.seq
+        channel?.send(.motionSync(seq: motion.seq, x: motion.x, y: motion.y))
+    }
+
+    private func startMotion(key: Data) {
+        stopMotion()
+        // The welcome that precedes this offer stored the Mac's serverID, its Bluetooth name.
+        guard let serverID = UserDefaults.standard.string(forKey: "lastServerID") else { return }
+        motion = MotionSession(key: SymmetricKey(data: key))
+        bluetooth.onNotice = { [weak self] notice in self?.bluetoothNotice = notice }
+        bluetooth.start(serverID: serverID)
+        // Probe until the Mac confirms; Bluetooth may need a few seconds, or the user may still
+        // have to switch it on. Sending while disconnected is a no-op.
+        motion?.probe = Timer.scheduledTimer(withTimeInterval: 0.25, repeats: true) { [weak self] timer in
+            guard let self, let motion = self.motion, !motion.ready else { timer.invalidate(); return }
+            self.sendMotion(.probe)
+        }
+    }
+
+    private func sendMotion(_ kind: MotionPacket.Kind) {
+        guard let data = motion?.seal(kind) else { return }
+        bluetooth.send(data)
+    }
+
+    private func stopMotion() {
+        motion?.probe?.invalidate()
+        motion = nil
+        bluetooth.onNotice = nil
+        bluetooth.stop()
+        bluetoothNotice = nil
     }
 
     private func scheduleFlush() {
@@ -381,9 +454,15 @@ final class MacConnection {
     private func flushCoalesced() {
         flushScheduled = false
         guard connectedName != nil, inputAllowed else {
-            coalescedMove = nil
             coalescedScroll = nil
+            coalescedMove = nil
+            motion?.dirty = false
             return
+        }
+        if motion?.dirty == true {
+            motion?.dirty = false
+            motion?.seq &+= 1
+            sendMotion(.motion)
         }
         if let move = coalescedMove {
             coalescedMove = nil
@@ -391,6 +470,7 @@ final class MacConnection {
         }
         if let scroll = coalescedScroll {
             coalescedScroll = nil
+            syncMotion()
             channel?.send(.scroll(dx: scroll.dx, dy: scroll.dy))
         }
     }
@@ -430,8 +510,9 @@ final class MacConnection {
         pendingText = nil
         sendingText = false
         textTimeout?.invalidate()
-        coalescedMove = nil
         coalescedScroll = nil
+        coalescedMove = nil
+        stopMotion()
         status = "未连接"
     }
 

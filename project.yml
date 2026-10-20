@@ -8,6 +8,7 @@ settings:
   base:
     SWIFT_VERSION: '5.0'
     CODE_SIGN_STYLE: Automatic
+    DEVELOPMENT_TEAM: 3BUD4GCZCQ
     ENABLE_USER_SCRIPT_SANDBOXING: YES
 targets:
   RemoteControl:
@@ -22,6 +23,7 @@ targets:
         NSLocalNetworkUsageDescription: 发现并连接同一 Wi-Fi 下的 Mac，以控制鼠标和输入文字。
         NSBonjourServices: ['_remotecontrol._tcp']
         NSMicrophoneUsageDescription: 按住说话，将语音识别为文字后发送到你的 Mac。
+        NSBluetoothAlwaysUsageDescription: 通过蓝牙把鼠标移动直接发送给 Mac，减少 Wi-Fi 抖动造成的卡顿。
         NSSpeechRecognitionUsageDescription: 将中文语音转成可编辑文字。部分设备可能使用 Apple 的语音识别服务。
         UISupportedInterfaceOrientations:
           - UIInterfaceOrientationPortrait
@@ -42,6 +44,7 @@ targets:
         CFBundleDisplayName: 遥控板 Mac
         LSUIElement: true
         NSLocalNetworkUsageDescription: 接收已配对 iPhone 的鼠标操作和文字。
+        NSBluetoothAlwaysUsageDescription: 通过蓝牙接收已配对 iPhone 的鼠标移动，减少 Wi-Fi 抖动造成的卡顿。
         NSBonjourServices: ['_remotecontrol._tcp']
     settings:
       base:

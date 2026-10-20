@@ -25,6 +25,14 @@ struct MacStatusView: View {
             Label("遥控板 Mac", systemImage: "computermouse.fill").font(.title2.bold())
             Label(server.status, systemImage: server.peerName == nil ? "circle" : "checkmark.circle.fill")
                 .foregroundStyle(server.peerName == nil ? .secondary : .primary)
+            if server.peerName != nil, !server.motionStatus.isEmpty {
+                Text(server.motionStatus)
+                    .font(.caption.monospacedDigit()).foregroundStyle(.secondary)
+            }
+            if let problem = server.bluetoothProblem {
+                Label(problem, systemImage: "exclamationmark.triangle")
+                    .font(.caption).foregroundStyle(.orange)
+            }
             if !server.permissionGranted {
                 VStack(alignment: .leading, spacing: 8) {
                     Text("允许辅助功能访问后，iPhone 才能控制鼠标和输入文字。")

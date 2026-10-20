@@ -20,6 +20,8 @@
 	<string>1.0</string>
 	<key>CFBundleVersion</key>
 	<string>1</string>
+	<key>NSBluetoothAlwaysUsageDescription</key>
+	<string>通过蓝牙把鼠标移动直接发送给 Mac，减少 Wi-Fi 抖动造成的卡顿。</string>
 	<key>NSBonjourServices</key>
 	<array>
 		<string>_remotecontrol._tcp</string>
