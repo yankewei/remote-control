@@ -52,6 +52,9 @@ enum Pairing {
         sec_protocol_options_set_min_tls_protocol_version(tls.securityProtocolOptions, .TLSv12)
         sec_protocol_options_set_max_tls_protocol_version(tls.securityProtocolOptions, .TLSv12)
         sec_protocol_options_append_tls_ciphersuite(tls.securityProtocolOptions, tls_ciphersuite_t(rawValue: UInt16(TLS_PSK_WITH_AES_128_GCM_SHA256))!)
+        // PSK sessions carry no certificates, so resuming one only logs a boringssl warning.
+        // A full PSK handshake on the LAN is cheap; skip the session cache.
+        sec_protocol_options_set_tls_resumption_enabled(tls.securityProtocolOptions, false)
         let tcp = NWProtocolTCP.Options()
         tcp.noDelay = true
         let parameters = NWParameters(tls: tls, tcp: tcp)
