@@ -29,7 +29,7 @@ final class ProtocolTests: XCTestCase {
             XCTAssertThrowsError(try framer.append(Data(prefix)))
         }
         for message: ControlMessage in [.move(dx: .infinity, dy: 0), .move(dx: 2001, dy: 0),
-            .click(button: .left, count: 3), .text(id: UUID(), value: String(repeating: "中", count: 6000)),
+            .click(button: .left, count: 4), .text(id: UUID(), value: String(repeating: "中", count: 6000)),
             .hello(name: "", version: WireProtocol.version, deviceID: "device-1"),
             .hello(name: "iPhone", version: 0, deviceID: "device-1"),
             .welcome(name: "Mac", version: WireProtocol.version, serverID: "", inputAllowed: true)] {

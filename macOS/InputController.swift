@@ -82,14 +82,14 @@ final class InputController {
         case let .move(dx, dy):
             post(CGVector(dx: dx, dy: dy))
         case let .click(button, count):
+            // One press per message; `count` is its place in a run of quick taps, so the second
+            // tap of a double-click arrives as its own message with count 2.
             releaseDrag()
-            for index in 1...count {
-                for type: CGEventType in button == .left ? [.leftMouseDown, .leftMouseUp] : [.rightMouseDown, .rightMouseUp] {
-                    let event = CGEvent(mouseEventSource: nil, mouseType: type, mouseCursorPosition: location,
-                                        mouseButton: button == .left ? .left : .right)
-                    event?.setIntegerValueField(.mouseEventClickState, value: Int64(index))
-                    event?.post(tap: .cghidEventTap)
-                }
+            for type: CGEventType in button == .left ? [.leftMouseDown, .leftMouseUp] : [.rightMouseDown, .rightMouseUp] {
+                let event = CGEvent(mouseEventSource: nil, mouseType: type, mouseCursorPosition: location,
+                                    mouseButton: button == .left ? .left : .right)
+                event?.setIntegerValueField(.mouseEventClickState, value: Int64(count))
+                event?.post(tap: .cghidEventTap)
             }
         case let .scroll(dx, dy):
             let whole = scroll.take(dx: dx, dy: dy)
