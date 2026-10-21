@@ -4,49 +4,6 @@ import Observation
 import ApplicationServices
 import CryptoKit
 
-/// Rolling 2-second view of Bluetooth motion delivery, to tell link jitter apart from other causes.
-struct MotionStats {
-    private var lateness: [Double] = []
-    private var lateCount = 0
-    private var delay = 0.0
-    private var firstSeq: UInt32?
-    private var lastSeq: UInt32?
-    private var lastArrival: TimeInterval?
-    /// Time spent moving: gaps between datagrams, leaving out the pauses between strokes.
-    private var movingTime: TimeInterval = 0
-    private var movingGaps = 0
-
-    mutating func record(seq: UInt32, excessLatency: Double, playoutDelay: Double, at arrival: TimeInterval) {
-        lateness.append(excessLatency)
-        if excessLatency > playoutDelay { lateCount += 1 }
-        delay = playoutDelay
-        if firstSeq == nil { firstSeq = seq }
-        lastSeq = seq
-        if let lastArrival, arrival - lastArrival < 0.15 {
-            movingTime += arrival - lastArrival
-            movingGaps += 1
-        }
-        lastArrival = arrival
-    }
-
-    /// Returns nil while idle so the menu keeps the last meaningful reading.
-    mutating func summarize() -> String? {
-        defer { self = MotionStats() }
-        guard lateness.count >= 10, let firstSeq, let lastSeq, lastSeq >= firstSeq else { return nil }
-        let sorted = lateness.sorted()
-        let p95 = sorted[min(sorted.count - 1, Int(Double(sorted.count) * 0.95))] * 1000
-        let worst = (sorted.last ?? 0) * 1000
-        let expected = Double(lastSeq - firstSeq + 1)
-        let loss = max(0, 1 - Double(sorted.count) / expected) * 100
-        let lateShare = Double(lateCount) / Double(sorted.count) * 100
-        // How often the phone actually got a datagram out while moving; its pacing widens when
-        // the link cannot keep up.
-        let rate = Double(movingGaps) / max(movingTime, 0.001)
-        return String(format: "蓝牙 · 缓冲 %.0f ms · 抖动 p95 %.0f ms · 最大 %.0f ms\n丢包 %.1f%% · 超出 %.0f%% · %.0f 包/秒",
-                      delay * 1000, p95, worst, loss, lateShare, rate)
-    }
-}
-
 @Observable
 final class ConnectionServer {
     var status = "正在启动"
@@ -139,6 +96,8 @@ final class ConnectionServer {
         }
         if let excess = input.receiveMotion(packet, at: arrival) {
             motionStats.record(seq: packet.seq, excessLatency: excess, playoutDelay: input.playoutDelay, at: arrival)
+        } else if packet.kind == .motion, input.accessibilityAllowed {
+            motionStats.recordStale(seq: packet.seq)
         }
     }
 
@@ -219,6 +178,7 @@ final class ConnectionServer {
                     channel.send(.failure("上一段文字仍在粘贴，请稍后再发送"))
                     return
                 }
+                if case let .motionSync(seq, _, _) = message { self.motionStats.recordSync(seq: seq) }
                 self.input.handle(message)
                 if case let .text(requestID, _) = message, self.permissionGranted {
                     channel.send(.textAccepted(id: requestID))
