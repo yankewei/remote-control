@@ -46,6 +46,13 @@ final class TouchSurface: UIView, UIGestureRecognizerDelegate {
     private var onTouch: (([TrackpadTouch], Bool) -> Void)?
     private var sensitivity = 1.4
     private var dragging = false
+    /// The long press fired but the finger has not moved yet: moving starts a drag, lifting is a
+    /// right-click. Nothing has gone to the Mac until one of those happens.
+    private var holdPending = false
+    /// The last left tap, so quick repeats count up to a double or triple click. Each tap goes out
+    /// at once instead of waiting to see whether another follows.
+    private var lastTap: (time: TimeInterval, count: Int)?
+    private static let multiTapInterval: TimeInterval = 0.4
     private var wasEnabled = true
     private let oneFinger = PointerPanGestureRecognizer()
     private var lastPointer: CGPoint?
@@ -64,27 +71,25 @@ final class TouchSurface: UIView, UIGestureRecognizerDelegate {
         twoFingers.addTarget(self, action: #selector(scroll(_:)))
         hold.minimumPressDuration = 0.35
         hold.addTarget(self, action: #selector(drag(_:)))
+        // No double-tap recognizer: it would hold every single tap back until it failed.
         let single = UITapGestureRecognizer(target: self, action: #selector(leftClick))
-        let double = UITapGestureRecognizer(target: self, action: #selector(doubleClick))
-        double.numberOfTapsRequired = 2
         let right = UITapGestureRecognizer(target: self, action: #selector(rightClick))
         right.numberOfTouchesRequired = 2
-        single.require(toFail: double)
         single.require(toFail: hold)
         observer.cancelsTouchesInView = false
         observer.delaysTouchesBegan = false
         observer.delaysTouchesEnded = false
         observer.onChange = { [weak self] points in
             guard let self else { return }
-            self.onTouch?(points, self.dragging)
+            self.onTouch?(points, self.showsDragMode)
         }
-        for gesture in [oneFinger, twoFingers, hold, single, double, right, observer] {
+        for gesture in [oneFinger, twoFingers, hold, single, right, observer] {
             gesture.delegate = self
             addGestureRecognizer(gesture)
         }
         isAccessibilityElement = true
         accessibilityLabel = "Mac 触控板"
-        accessibilityHint = "单指滑动移动鼠标，双指滚动，长按后移动可拖拽"
+        accessibilityHint = "单指滑动移动鼠标，轻点单击，连点双击，双指轻点或长按松开为右键，双指滚动，长按后移动可拖拽"
         accessibilityCustomActions = [
             UIAccessibilityCustomAction(name: "左键单击", target: self, selector: #selector(accessibleClick)),
             UIAccessibilityCustomAction(name: "右键单击", target: self, selector: #selector(accessibleRightClick))
@@ -99,6 +104,10 @@ final class TouchSurface: UIView, UIGestureRecognizerDelegate {
         if previouslyEnabled && !enabled && dragging {
             self.send(.drag(active: false))
             dragging = false
+        }
+        if !enabled {
+            holdPending = false
+            lastTap = nil
         }
         self.send = send
         self.move = move
@@ -129,6 +138,9 @@ final class TouchSurface: UIView, UIGestureRecognizerDelegate {
                 let dx = (sample.location.x - origin.x) * gain
                 let dy = (sample.location.y - origin.y) * gain
                 guard dx != 0 || dy != 0 else { continue }
+                // The pointer left the tapped spot, so the next tap starts a new click run.
+                lastTap = nil
+                if holdPending { beginDrag() }
                 move(ControlMessage.clampDelta(dx), ControlMessage.clampDelta(dy), sample.time)
             }
         default:
@@ -138,9 +150,13 @@ final class TouchSurface: UIView, UIGestureRecognizerDelegate {
     }
 
     @objc private func scroll(_ gesture: UIPanGestureRecognizer) {
-        if gesture.state == .began && dragging {
-            send(.drag(active: false))
-            dragging = false
+        if gesture.state == .began {
+            lastTap = nil
+            holdPending = false
+            if dragging {
+                send(.drag(active: false))
+                dragging = false
+            }
             notifyTouchState()
         }
         if gesture.state == .changed {
@@ -151,25 +167,60 @@ final class TouchSurface: UIView, UIGestureRecognizerDelegate {
     }
 
     @objc private func drag(_ gesture: UILongPressGestureRecognizer) {
-        if gesture.state == .began {
-            dragging = true
-            send(.drag(active: true))
+        switch gesture.state {
+        case .began:
+            holdPending = true
+            lastTap = nil
+            TrackpadHaptics.hold.impactOccurred()
             notifyTouchState()
-        } else if [.ended, .cancelled, .failed].contains(gesture.state), dragging {
-            dragging = false
-            send(.drag(active: false))
+        case .ended, .cancelled, .failed:
+            if dragging {
+                dragging = false
+                send(.drag(active: false))
+            } else if holdPending, gesture.state == .ended {
+                rightClick()
+            }
+            holdPending = false
             notifyTouchState()
+        default:
+            break
         }
     }
 
-    @objc private func leftClick() { send(.click(button: .left, count: 1)) }
-    @objc private func doubleClick() { send(.click(button: .left, count: 2)) }
-    @objc private func rightClick() { send(.click(button: .right, count: 1)) }
-    @objc private func accessibleClick() -> Bool { leftClick(); return true }
+    /// Presses the button only once the held finger moves, so a hold released in place can be a
+    /// right-click instead.
+    private func beginDrag() {
+        holdPending = false
+        dragging = true
+        send(.drag(active: true))
+        notifyTouchState()
+    }
+
+    @objc private func leftClick() {
+        let now = ProcessInfo.processInfo.systemUptime
+        let count = lastTap.map { now - $0.time < Self.multiTapInterval ? min($0.count + 1, 3) : 1 } ?? 1
+        lastTap = (now, count)
+        send(.click(button: .left, count: count))
+    }
+
+    @objc private func rightClick() {
+        lastTap = nil
+        send(.click(button: .right, count: 1))
+    }
+
+    @objc private func accessibleClick() -> Bool {
+        lastTap = nil
+        send(.click(button: .left, count: 1))
+        return true
+    }
+
     @objc private func accessibleRightClick() -> Bool { rightClick(); return true }
 
+    /// The touch glow takes the drag color from the moment the hold fires.
+    private var showsDragMode: Bool { dragging || holdPending }
+
     private func notifyTouchState() {
-        onTouch?(observer.latest, dragging)
+        onTouch?(observer.latest, showsDragMode)
     }
 
     func gestureRecognizer(_ gestureRecognizer: UIGestureRecognizer, shouldReceive touch: UITouch) -> Bool {
@@ -567,7 +618,7 @@ private struct IdleHint: View {
             Text(isConnected ? (inputAllowed ? "你的手指，就是鼠标" : "等待 Mac 辅助功能权限") : "连接 Mac，开始操控")
                 .font(.system(.headline, design: .rounded))
                 .foregroundStyle(.white.opacity(0.72))
-            Text("单指移动 · 双指滚动 · 长按拖拽")
+            Text("单指移动 · 双指滚动 · 长按拖拽或右键")
                 .font(.system(.caption, design: .rounded))
                 .foregroundStyle(.white.opacity(0.38))
         }
@@ -610,8 +661,10 @@ private struct ConnectButton: View {
     }
 }
 
-// Buttons only: the touchpad itself stays silent, since a tap felt on the phone before the
-// Mac cursor reacts makes network latency more noticeable.
+// Taps and strokes on the touchpad stay silent, since a tap felt on the phone before the Mac
+// cursor reacts makes network latency more noticeable. Buttons and the long press, a local mode
+// change with nothing to wait for on the Mac, do get feedback.
 private enum TrackpadHaptics {
     static let light = UIImpactFeedbackGenerator(style: .light)
+    static let hold = UIImpactFeedbackGenerator(style: .medium)
 }

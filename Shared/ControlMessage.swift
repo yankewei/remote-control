@@ -7,7 +7,7 @@ enum RemoteKey: String, Codable { case enter, escape, delete, tab, space, copy, 
 
 enum WireProtocol {
     /// Both apps are normally updated together; the handshake rejects a mismatch with a clear message.
-    static let version = 4
+    static let version = 5
 }
 
 enum ProtocolConstants {
@@ -24,6 +24,7 @@ enum ControlMessage: Codable, Equatable {
     /// Pointer motion over Wi-Fi, used until Bluetooth is confirmed or while its link is down;
     /// otherwise motion reaches the Mac as `MotionPacket`s over Bluetooth.
     case move(dx: Double, dy: Double)
+    /// A single press; `count` is its place in a run of quick taps (2 = second tap of a double-click).
     case click(button: MouseButton, count: Int)
     case scroll(dx: Double, dy: Double)
     case drag(active: Bool)
@@ -50,7 +51,7 @@ enum ControlMessage: Codable, Equatable {
                 && abs(y) <= ProtocolConstants.maximumPointerDelta
         case let .motionOffer(key): return key.count == 32
         case let .motionSync(_, x, y): return MotionPacket.isValidTotal(x) && MotionPacket.isValidTotal(y)
-        case let .click(_, count): return (1...2).contains(count)
+        case let .click(_, count): return (1...3).contains(count)
         case let .text(_, text): return !text.isEmpty && text.utf8.count <= ProtocolConstants.maximumTextBytes
         case let .hello(name, version, deviceID):
             return Self.isValidName(name) && version > 0 && Self.isValidIdentifier(deviceID)
@@ -276,5 +277,22 @@ struct MotionPlayout {
         emittedX = target.x
         emittedY = target.y
         return delta
+    }
+}
+
+/// Scroll events carry whole pixels; a slow scroll arrives as many sub-pixel deltas that would
+/// each round to zero. Carry the fraction over to the next delta instead.
+struct ScrollAccumulator {
+    private var remainderX = 0.0
+    private var remainderY = 0.0
+
+    mutating func take(dx: Double, dy: Double) -> (dx: Int32, dy: Int32) {
+        let x = remainderX + dx
+        let y = remainderY + dy
+        let wholeX = x.rounded(.towardZero)
+        let wholeY = y.rounded(.towardZero)
+        remainderX = x - wholeX
+        remainderY = y - wholeY
+        return (Int32(wholeX), Int32(wholeY))
     }
 }

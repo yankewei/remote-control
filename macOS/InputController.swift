@@ -36,6 +36,7 @@ final class InputController {
     // return a stale position and swallow motion. Track our own position while moving.
     private var cursor: CGPoint?
     private var lastMoveTime: TimeInterval = 0
+    private var scroll = ScrollAccumulator()
 
     init() {
         refreshDisplays()
@@ -81,18 +82,20 @@ final class InputController {
         case let .move(dx, dy):
             post(CGVector(dx: dx, dy: dy))
         case let .click(button, count):
+            // One press per message; `count` is its place in a run of quick taps, so the second
+            // tap of a double-click arrives as its own message with count 2.
             releaseDrag()
-            for index in 1...count {
-                for type: CGEventType in button == .left ? [.leftMouseDown, .leftMouseUp] : [.rightMouseDown, .rightMouseUp] {
-                    let event = CGEvent(mouseEventSource: nil, mouseType: type, mouseCursorPosition: location,
-                                        mouseButton: button == .left ? .left : .right)
-                    event?.setIntegerValueField(.mouseEventClickState, value: Int64(index))
-                    event?.post(tap: .cghidEventTap)
-                }
+            for type: CGEventType in button == .left ? [.leftMouseDown, .leftMouseUp] : [.rightMouseDown, .rightMouseUp] {
+                let event = CGEvent(mouseEventSource: nil, mouseType: type, mouseCursorPosition: location,
+                                    mouseButton: button == .left ? .left : .right)
+                event?.setIntegerValueField(.mouseEventClickState, value: Int64(count))
+                event?.post(tap: .cghidEventTap)
             }
         case let .scroll(dx, dy):
+            let whole = scroll.take(dx: dx, dy: dy)
+            guard whole != (0, 0) else { return }
             CGEvent(scrollWheelEvent2Source: nil, units: .pixel, wheelCount: 2,
-                    wheel1: Int32(dy.rounded()), wheel2: Int32(dx.rounded()), wheel3: 0)?.post(tap: .cghidEventTap)
+                    wheel1: whole.dy, wheel2: whole.dx, wheel3: 0)?.post(tap: .cghidEventTap)
         case let .drag(active):
             guard active != dragging else { return }
             dragging = active
