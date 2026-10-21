@@ -120,7 +120,7 @@ enum ProtocolError: Error, Equatable { case invalidMessage, oversizedFrame }
 enum MotionChannel {
     /// Starting playout delay, until enough samples show how much the link actually jitters.
     /// Late packets beyond the delay still apply, just without interpolation.
-    static let playoutDelay: TimeInterval = 0.025
+    static let playoutDelay: TimeInterval = 0.015
     /// The Mac advertises this service with its serverID as the local name, so the phone joins
     /// the Mac it is paired with.
     static let bluetoothService = "8E3F2C1A-5B7D-4E9A-9C61-2D4B7A1E6F30"
@@ -185,9 +185,11 @@ struct MotionPlayout {
     private var lastReceived = -Double.infinity
     private static let latenessWindow = 240
     private static let minimumSamples = 30
-    private static let delayMargin = 0.004
-    static let minimumDelay = 0.008
-    static let maximumDelay = 0.08
+    private static let delayMargin = 0.002
+    static let minimumDelay = 0.004
+    /// A link that jitters more than this is not worth hiding: past it, waiting costs more than
+    /// the occasional uninterpolated step a late sample makes.
+    static let maximumDelay = 0.04
     /// Largest increase applied to a single sample within a stroke, so a rise reads as a
     /// barely slower stretch rather than a pause.
     private static let maximumRiseStep = 0.002

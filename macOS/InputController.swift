@@ -61,8 +61,8 @@ final class InputController {
     }
 
     /// Returns the sample's lateness beyond the fastest recent one, or nil if it was stale.
-    func receiveMotion(_ packet: MotionPacket) -> Double? {
-        guard accessibilityAllowed, let lateness = playout.receive(packet, at: ProcessInfo.processInfo.systemUptime) else { return nil }
+    func receiveMotion(_ packet: MotionPacket, at arrival: TimeInterval) -> Double? {
+        guard accessibilityAllowed, let lateness = playout.receive(packet, at: arrival) else { return nil }
         startSmoothing()
         return lateness
     }

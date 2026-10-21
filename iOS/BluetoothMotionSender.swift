@@ -1,18 +1,34 @@
 import CoreBluetooth
 
 /// Writes sealed motion datagrams to the paired Mac over Bluetooth LE. A datagram that cannot go
-/// out right now is held until the write queue drains, replaced by any newer one: each carries the
-/// running total, so only the latest matters, but the last one of a stroke must still arrive.
+/// out right now is held until the write queue drains or its pacing slot comes, replaced by any
+/// newer one: each carries the running total, so only the latest matters, but the last one of a
+/// stroke must still arrive. Datagrams are sealed at write time, so the one that goes out carries
+/// the newest totals.
 final class BluetoothMotionSender: NSObject, CBCentralManagerDelegate, CBPeripheralDelegate {
     /// Why motion cannot reach the Mac right now, or nil once the characteristic is writable.
     var onNotice: ((String?) -> Void)?
     private var manager: CBCentralManager?
     private var peripheral: CBPeripheral?
     private var characteristic: CBCharacteristic? {
-        didSet { if characteristic == nil { pending = nil } }
+        didSet {
+            guard characteristic == nil else { return }
+            pending = nil
+            paceTimer?.invalidate()
+            paceTimer = nil
+        }
     }
-    /// The newest datagram that found the write queue full; sent once the queue drains.
-    private var pending: Data?
+    /// The newest datagram that found the write queue full or came before its slot.
+    private var pending: (() -> Data?)?
+    /// Writes go out no closer together than this. Touch samples arrive faster than the link
+    /// drains, and every datagram waiting inside CoreBluetooth's queue is pure latency. The queue
+    /// only reports full once many are waiting, so it cannot set the pace: measured on an iPhone
+    /// to Mac link (≈30 ms connection events, ≥100 datagrams/s), 7.5 ms built a 60+ ms backlog
+    /// while 45 ms built none. 15 ms stays well under the link and still lands about two fresh
+    /// datagrams in each event.
+    private static let spacing: TimeInterval = 0.015
+    private var lastWrite: TimeInterval = 0
+    private var paceTimer: Timer?
     /// Peripherals whose connection `stop()` cancelled but whose disconnect callback has not
     /// arrived yet. CoreBluetooth reuses one CBPeripheral per device, so a late callback would
     /// otherwise tear down the new link to the same Mac.
@@ -45,17 +61,33 @@ final class BluetoothMotionSender: NSObject, CBCentralManagerDelegate, CBPeriphe
         characteristic = nil
     }
 
-    func send(_ data: Data) {
-        guard let peripheral, let characteristic,
-              peripheral.maximumWriteValueLength(for: .withoutResponse) >= data.count else { return }
-        guard peripheral.canSendWriteWithoutResponse else { pending = data; return }
+    func send(_ datagram: @escaping () -> Data?) {
+        guard let peripheral, let characteristic else { return }
+        let now = ProcessInfo.processInfo.systemUptime
+        let wait = lastWrite + Self.spacing - now
+        guard peripheral.canSendWriteWithoutResponse, wait <= 0 else {
+            pending = datagram
+            if wait > 0, paceTimer == nil {
+                // Common modes, so the slot still fires while UIKit is tracking the touch.
+                let timer = Timer(timeInterval: wait, repeats: false) { [weak self] _ in
+                    guard let self else { return }
+                    self.paceTimer = nil
+                    if let datagram = self.pending { self.send(datagram) }
+                }
+                RunLoop.main.add(timer, forMode: .common)
+                paceTimer = timer
+            }
+            return
+        }
         pending = nil
+        guard let data = datagram(), peripheral.maximumWriteValueLength(for: .withoutResponse) >= data.count else { return }
+        lastWrite = now
         peripheral.writeValue(data, for: characteristic, type: .withoutResponse)
     }
 
     func peripheralIsReady(toSendWriteWithoutResponse peripheral: CBPeripheral) {
-        guard peripheral === self.peripheral, let data = pending else { return }
-        send(data)
+        guard peripheral === self.peripheral, let datagram = pending else { return }
+        send(datagram)
     }
 
     private func scan(_ manager: CBCentralManager) {

@@ -11,14 +11,21 @@ private struct MotionSession {
     let key: SymmetricKey
     var ready = false
     var seq: UInt32 = 0
-    var syncedSeq: UInt32 = 0
+    /// The totals moved since the last `motionSync`.
+    var unsynced = false
     var x = 0.0
     var y = 0.0
     var probe: Timer?
 
-    /// `timestamp` is when the motion happened (a touch sample's time), on the uptime clock.
-    func seal(_ kind: MotionPacket.Kind, at timestamp: TimeInterval = ProcessInfo.processInfo.systemUptime) -> Data? {
-        try? MotionPacket(kind: kind, seq: seq, timestamp: timestamp, x: x, y: y).seal(with: key)
+    /// Seals a datagram with the totals as they are now. Each motion datagram actually written
+    /// takes the next sequence number, so a gap on the Mac means loss rather than pacing. It is
+    /// stamped with the write time, not the touch time: the wait for a pacing slot then never
+    /// reads as link jitter, which the Mac would otherwise cover with a longer buffer for every
+    /// sample, and the paced writes give the Mac an evenly spaced timeline to replay.
+    mutating func seal(_ kind: MotionPacket.Kind) -> Data? {
+        if kind == .motion { seq &+= 1 }
+        return try? MotionPacket(kind: kind, seq: seq, timestamp: ProcessInfo.processInfo.systemUptime,
+                                 x: x, y: y).seal(with: key)
     }
 }
 
@@ -385,22 +392,22 @@ final class MacConnection {
         return current
     }
 
-    /// One touch sample of pointer motion. Over Bluetooth it goes out at once as its own datagram
-    /// stamped with the touch time, so the Mac replays the stroke at the finger's pace.
-    func movePointer(dx: Double, dy: Double, at time: TimeInterval) {
+    /// One touch sample of pointer motion. Over Bluetooth it goes out as soon as the link takes
+    /// it, together with any samples that were waiting for the same slot.
+    func movePointer(dx: Double, dy: Double) {
         guard connectedName != nil, inputAllowed else { return }
         guard motionOverBluetooth else { send(.move(dx: dx, dy: dy)); return }
         motion?.x += dx
         motion?.y += dy
-        motion?.seq &+= 1
-        sendMotion(.motion, at: time)
+        motion?.unsynced = true
+        sendMotion(.motion)
     }
 
     func send(_ message: ControlMessage) {
         guard connectedName != nil, inputAllowed else { return }
         switch message {
         case let .move(dx, dy) where motionOverBluetooth:
-            movePointer(dx: dx, dy: dy, at: ProcessInfo.processInfo.systemUptime)
+            movePointer(dx: dx, dy: dy)
         case let .move(dx, dy):
             // Bluetooth is off, not allowed or still connecting: Wi-Fi keeps the pointer usable.
             let current = coalescedMove ?? (0, 0)
@@ -420,9 +427,13 @@ final class MacConnection {
     /// Sends the Bluetooth total ahead of an action on the ordered stream, so it lands where the
     /// pointer ends up even if datagrams are late or lost.
     private func syncMotion() {
-        guard let motion, motion.ready, motion.seq != motion.syncedSeq else { return }
-        self.motion?.syncedSeq = motion.seq
-        channel?.send(.motionSync(seq: motion.seq, x: motion.x, y: motion.y))
+        guard let motion, motion.ready, motion.unsynced else { return }
+        // Its own sequence number: a datagram still waiting for the link then carries a later
+        // one with the same totals, so it applies nothing twice.
+        let seq = motion.seq &+ 1
+        self.motion?.seq = seq
+        self.motion?.unsynced = false
+        channel?.send(.motionSync(seq: seq, x: motion.x, y: motion.y))
     }
 
     private func startMotion(key: Data) {
@@ -440,9 +451,10 @@ final class MacConnection {
         }
     }
 
-    private func sendMotion(_ kind: MotionPacket.Kind, at time: TimeInterval = ProcessInfo.processInfo.systemUptime) {
-        guard let data = motion?.seal(kind, at: time) else { return }
-        bluetooth.send(data)
+    /// Sealed only when the link is ready for it, so a datagram held back carries the latest totals.
+    private func sendMotion(_ kind: MotionPacket.Kind) {
+        guard motion != nil else { return }
+        bluetooth.send { [weak self] in self?.motion?.seal(kind) }
     }
 
     private func stopMotion() {

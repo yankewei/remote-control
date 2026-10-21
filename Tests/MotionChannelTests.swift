@@ -102,12 +102,12 @@ final class MotionChannelTests: XCTestCase {
         var delays: [Double] = []
         for index in 0..<120 {
             let sent = 1 + Double(index) * 0.005
-            // Every other sample arrives 40 ms late.
-            let lateness = index.isMultiple(of: 2) ? 0.0 : 0.04
+            // Every other sample arrives 30 ms late.
+            let lateness = index.isMultiple(of: 2) ? 0.0 : 0.03
             playout.receive(packet(UInt32(index + 1), at: sent, x: Double(index)), at: sent + 4 + lateness)
             delays.append(playout.delay)
         }
-        XCTAssertEqual(playout.delay, 0.044, accuracy: 0.001)
+        XCTAssertEqual(playout.delay, 0.032, accuracy: 0.001)
         for (previous, next) in zip(delays, delays.dropFirst()) {
             XCTAssertLessThanOrEqual(next - previous, 0.002 + 1e-9)
         }
