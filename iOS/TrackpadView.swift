@@ -26,7 +26,7 @@ struct TrackpadView: UIViewRepresentable {
     var enabled: Bool
     var sensitivity: Double
     var send: (ControlMessage) -> Void
-    var move: (Double, Double, TimeInterval) -> Void
+    var move: (Double, Double) -> Void
     var onTouch: ([TrackpadTouch], Bool) -> Void
 
     func makeUIView(context: Context) -> TouchSurface {
@@ -42,7 +42,7 @@ struct TrackpadView: UIViewRepresentable {
 
 final class TouchSurface: UIView, UIGestureRecognizerDelegate {
     private var send: (ControlMessage) -> Void = { _ in }
-    private var move: (Double, Double, TimeInterval) -> Void = { _, _, _ in }
+    private var move: (Double, Double) -> Void = { _, _ in }
     private var onTouch: (([TrackpadTouch], Bool) -> Void)?
     private var sensitivity = 1.4
     private var dragging = false
@@ -99,7 +99,7 @@ final class TouchSurface: UIView, UIGestureRecognizerDelegate {
     required init?(coder: NSCoder) { fatalError("init(coder:) has not been implemented") }
 
     func configure(enabled: Bool, sensitivity: Double, send: @escaping (ControlMessage) -> Void,
-                   move: @escaping (Double, Double, TimeInterval) -> Void, onTouch: @escaping ([TrackpadTouch], Bool) -> Void) {
+                   move: @escaping (Double, Double) -> Void, onTouch: @escaping ([TrackpadTouch], Bool) -> Void) {
         let previouslyEnabled = wasEnabled
         if previouslyEnabled && !enabled && dragging {
             self.send(.drag(active: false))
@@ -128,20 +128,20 @@ final class TouchSurface: UIView, UIGestureRecognizerDelegate {
             let speed = hypot(gesture.velocity(in: self).x, gesture.velocity(in: self).y)
             // Slow strokes stay precise (≈1×); fast flicks reach up to 3.5× to cross the screen.
             let gain = sensitivity * (1 + min(speed / 600, 2.5))
-            // Every touch sample, including the ones UIKit coalesced into this frame, goes out
-            // with its own timestamp so the Mac can replay the stroke at the finger's pace.
+            // Every touch sample, including the ones UIKit coalesced into this frame, is applied
+            // in order; the link sends whatever has built up when its next slot comes.
             var samples = oneFinger.takeSamples()
-            if samples.isEmpty { samples = [(gesture.location(in: self), ProcessInfo.processInfo.systemUptime)] }
-            for sample in samples {
-                let origin = lastPointer ?? sample.location
-                lastPointer = sample.location
-                let dx = (sample.location.x - origin.x) * gain
-                let dy = (sample.location.y - origin.y) * gain
+            if samples.isEmpty { samples = [gesture.location(in: self)] }
+            for location in samples {
+                let origin = lastPointer ?? location
+                lastPointer = location
+                let dx = (location.x - origin.x) * gain
+                let dy = (location.y - origin.y) * gain
                 guard dx != 0 || dy != 0 else { continue }
                 // The pointer left the tapped spot, so the next tap starts a new click run.
                 lastTap = nil
                 if holdPending { beginDrag() }
-                move(ControlMessage.clampDelta(dx), ControlMessage.clampDelta(dy), sample.time)
+                move(ControlMessage.clampDelta(dx), ControlMessage.clampDelta(dy))
             }
         default:
             _ = oneFinger.takeSamples()
@@ -237,19 +237,18 @@ final class TouchSurface: UIView, UIGestureRecognizerDelegate {
 /// A pan that keeps every touch sample since the last action, including the in-between ones UIKit
 /// coalesces into one frame (touch sampling outruns the display on ProMotion iPhones).
 final class PointerPanGestureRecognizer: UIPanGestureRecognizer {
-    typealias Sample = (location: CGPoint, time: TimeInterval)
-    private var samples: [Sample] = []
+    private var samples: [CGPoint] = []
 
     override func touchesMoved(_ touches: Set<UITouch>, with event: UIEvent) {
         if let touch = touches.first, let view {
             for sample in event.coalescedTouches(for: touch) ?? [touch] {
-                samples.append((sample.location(in: view), sample.timestamp))
+                samples.append(sample.location(in: view))
             }
         }
         super.touchesMoved(touches, with: event)
     }
 
-    func takeSamples() -> [Sample] {
+    func takeSamples() -> [CGPoint] {
         defer { samples.removeAll(keepingCapacity: true) }
         return samples
     }
@@ -329,7 +328,7 @@ final class TouchObserverGestureRecognizer: UIGestureRecognizer {
 struct TouchpadCanvas: View {
     var sensitivity: Double
     var send: (ControlMessage) -> Void
-    var move: (Double, Double, TimeInterval) -> Void
+    var move: (Double, Double) -> Void
     var isConnected: Bool
     var inputAllowed: Bool
     var cornerRadius: CGFloat

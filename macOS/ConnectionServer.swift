@@ -11,13 +11,22 @@ struct MotionStats {
     private var delay = 0.0
     private var firstSeq: UInt32?
     private var lastSeq: UInt32?
+    private var lastArrival: TimeInterval?
+    /// Time spent moving: gaps between datagrams, leaving out the pauses between strokes.
+    private var movingTime: TimeInterval = 0
+    private var movingGaps = 0
 
-    mutating func record(seq: UInt32, excessLatency: Double, playoutDelay: Double) {
+    mutating func record(seq: UInt32, excessLatency: Double, playoutDelay: Double, at arrival: TimeInterval) {
         lateness.append(excessLatency)
         if excessLatency > playoutDelay { lateCount += 1 }
         delay = playoutDelay
         if firstSeq == nil { firstSeq = seq }
         lastSeq = seq
+        if let lastArrival, arrival - lastArrival < 0.15 {
+            movingTime += arrival - lastArrival
+            movingGaps += 1
+        }
+        lastArrival = arrival
     }
 
     /// Returns nil while idle so the menu keeps the last meaningful reading.
@@ -30,8 +39,11 @@ struct MotionStats {
         let expected = Double(lastSeq - firstSeq + 1)
         let loss = max(0, 1 - Double(sorted.count) / expected) * 100
         let lateShare = Double(lateCount) / Double(sorted.count) * 100
-        return String(format: "蓝牙 · 抖动 p95 %.0f ms · 最大 %.0f ms · 丢包 %.1f%% · 缓冲 %.0f ms · 超出 %.0f%%",
-                      p95, worst, loss, delay * 1000, lateShare)
+        // How often the phone actually got a datagram out while moving; its pacing widens when
+        // the link cannot keep up.
+        let rate = Double(movingGaps) / max(movingTime, 0.001)
+        return String(format: "蓝牙 · 缓冲 %.0f ms · 抖动 p95 %.0f ms · 最大 %.0f ms\n丢包 %.1f%% · 超出 %.0f%% · %.0f 包/秒",
+                      delay * 1000, p95, worst, loss, lateShare, rate)
     }
 }
 
@@ -71,7 +83,7 @@ final class ConnectionServer {
     }
 
     init() {
-        bluetooth.onDatagram = { [weak self] data in self?.handleMotionDatagram(data) }
+        bluetooth.onDatagram = { [weak self] data, arrival in self?.handleMotionDatagram(data, arrival: arrival) }
         bluetooth.onProblem = { [weak self] problem in self?.bluetoothProblem = problem }
         input.onError = { [weak self] reason in
             self?.status = reason
@@ -118,15 +130,15 @@ final class ConnectionServer {
 
     /// Anything not sealed with the session key is dropped; stale or duplicate datagrams are
     /// dropped by sequence number inside the playout buffer.
-    private func handleMotionDatagram(_ data: Data) {
+    private func handleMotionDatagram(_ data: Data, arrival: TimeInterval) {
         guard let key = motionKey, let id = activeID, let packet = MotionPacket.open(data, with: key) else { return }
         if !motionConfirmed {
             motionConfirmed = true
             channels[id]?.send(.motionReady)
             motionStatus = "蓝牙已连接"
         }
-        if let excess = input.receiveMotion(packet) {
-            motionStats.record(seq: packet.seq, excessLatency: excess, playoutDelay: input.playoutDelay)
+        if let excess = input.receiveMotion(packet, at: arrival) {
+            motionStats.record(seq: packet.seq, excessLatency: excess, playoutDelay: input.playoutDelay, at: arrival)
         }
     }
 

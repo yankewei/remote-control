@@ -28,6 +28,7 @@ struct MacStatusView: View {
             if server.peerName != nil, !server.motionStatus.isEmpty {
                 Text(server.motionStatus)
                     .font(.caption.monospacedDigit()).foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
             }
             if let problem = server.bluetoothProblem {
                 Label(problem, systemImage: "exclamationmark.triangle")
