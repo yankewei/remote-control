@@ -278,3 +278,20 @@ struct MotionPlayout {
         return delta
     }
 }
+
+/// Scroll events carry whole pixels; a slow scroll arrives as many sub-pixel deltas that would
+/// each round to zero. Carry the fraction over to the next delta instead.
+struct ScrollAccumulator {
+    private var remainderX = 0.0
+    private var remainderY = 0.0
+
+    mutating func take(dx: Double, dy: Double) -> (dx: Int32, dy: Int32) {
+        let x = remainderX + dx
+        let y = remainderY + dy
+        let wholeX = x.rounded(.towardZero)
+        let wholeY = y.rounded(.towardZero)
+        remainderX = x - wholeX
+        remainderY = y - wholeY
+        return (Int32(wholeX), Int32(wholeY))
+    }
+}

@@ -1,14 +1,18 @@
 import CoreBluetooth
 
 /// Writes sealed motion datagrams to the paired Mac over Bluetooth LE. A datagram that cannot go
-/// out right now is simply skipped: each one carries the running total, so the next write makes
-/// up for it.
+/// out right now is held until the write queue drains, replaced by any newer one: each carries the
+/// running total, so only the latest matters, but the last one of a stroke must still arrive.
 final class BluetoothMotionSender: NSObject, CBCentralManagerDelegate, CBPeripheralDelegate {
     /// Why motion cannot reach the Mac right now, or nil once the characteristic is writable.
     var onNotice: ((String?) -> Void)?
     private var manager: CBCentralManager?
     private var peripheral: CBPeripheral?
-    private var characteristic: CBCharacteristic?
+    private var characteristic: CBCharacteristic? {
+        didSet { if characteristic == nil { pending = nil } }
+    }
+    /// The newest datagram that found the write queue full; sent once the queue drains.
+    private var pending: Data?
     /// Peripherals whose connection `stop()` cancelled but whose disconnect callback has not
     /// arrived yet. CoreBluetooth reuses one CBPeripheral per device, so a late callback would
     /// otherwise tear down the new link to the same Mac.
@@ -42,9 +46,16 @@ final class BluetoothMotionSender: NSObject, CBCentralManagerDelegate, CBPeriphe
     }
 
     func send(_ data: Data) {
-        guard let peripheral, let characteristic, peripheral.canSendWriteWithoutResponse,
+        guard let peripheral, let characteristic,
               peripheral.maximumWriteValueLength(for: .withoutResponse) >= data.count else { return }
+        guard peripheral.canSendWriteWithoutResponse else { pending = data; return }
+        pending = nil
         peripheral.writeValue(data, for: characteristic, type: .withoutResponse)
+    }
+
+    func peripheralIsReady(toSendWriteWithoutResponse peripheral: CBPeripheral) {
+        guard peripheral === self.peripheral, let data = pending else { return }
+        send(data)
     }
 
     private func scan(_ manager: CBCentralManager) {
