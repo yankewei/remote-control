@@ -282,6 +282,73 @@ struct MotionPlayout {
     }
 }
 
+/// Rolling 2-second view of Bluetooth motion delivery, to tell link jitter apart from other causes.
+struct MotionStats {
+    private var lateness: [Double] = []
+    private var lateCount = 0
+    private var delay = 0.0
+    /// Every sequence number that came over Bluetooth this window, played or too old to play.
+    private var arrived: Set<UInt32> = []
+    /// Arrived after a sync or a newer datagram had already moved past them: late, not lost.
+    private var staleCount = 0
+    /// Numbers taken by `motionSync`, which only travels over Wi-Fi, so they leave gaps that are
+    /// not loss. The last window's are kept too, as a sync and the datagrams around it can fall
+    /// into different windows.
+    private var syncs: Set<UInt32> = []
+    private var earlierSyncs: Set<UInt32> = []
+    /// The highest number counted in earlier windows; anything at or below it is a repeat.
+    private var counted: UInt32?
+    private var lastArrival: TimeInterval?
+    /// Time spent moving: gaps between datagrams, leaving out the pauses between strokes.
+    private var movingTime: TimeInterval = 0
+    private var movingGaps = 0
+
+    mutating func record(seq: UInt32, excessLatency: Double, playoutDelay: Double, at arrival: TimeInterval) {
+        lateness.append(excessLatency)
+        if excessLatency > playoutDelay { lateCount += 1 }
+        delay = playoutDelay
+        arrived.insert(seq)
+        if let lastArrival, arrival - lastArrival < 0.15 {
+            movingTime += arrival - lastArrival
+            movingGaps += 1
+        }
+        lastArrival = arrival
+    }
+
+    /// A motion datagram the playout buffer dropped as stale or a duplicate.
+    mutating func recordStale(seq: UInt32) {
+        if let counted, seq <= counted { return }
+        if arrived.insert(seq).inserted { staleCount += 1 }
+    }
+
+    mutating func recordSync(seq: UInt32) {
+        syncs.insert(seq)
+    }
+
+    /// Returns nil while idle so the menu keeps the last meaningful reading.
+    mutating func summarize() -> String? {
+        defer {
+            var next = MotionStats()
+            next.earlierSyncs = syncs
+            next.counted = [counted, arrived.max()].compactMap { $0 }.max()
+            self = next
+        }
+        guard lateness.count >= 10, let firstSeq = arrived.min(), let lastSeq = arrived.max() else { return nil }
+        let sorted = lateness.sorted()
+        let p95 = sorted[min(sorted.count - 1, Int(Double(sorted.count) * 0.95))] * 1000
+        let worst = (sorted.last ?? 0) * 1000
+        let synced = syncs.union(earlierSyncs).filter { (firstSeq...lastSeq).contains($0) }.count
+        let expected = Double(lastSeq - firstSeq + 1) - Double(synced)
+        let loss = max(0, 1 - Double(arrived.count) / max(expected, 1)) * 100
+        let lateShare = Double(lateCount) / Double(sorted.count) * 100
+        // How often the phone actually got a datagram out while moving; its pacing widens when
+        // the link cannot keep up.
+        let rate = Double(movingGaps) / max(movingTime, 0.001)
+        return String(format: "蓝牙 · 缓冲 %.0f ms · 抖动 p95 %.0f ms · 最大 %.0f ms\n丢包 %.1f%% · 过期 %d · 超出 %.0f%% · %.0f 包/秒",
+                      delay * 1000, p95, worst, loss, staleCount, lateShare, rate)
+    }
+}
+
 /// Scroll events carry whole pixels; a slow scroll arrives as many sub-pixel deltas that would
 /// each round to zero. Carry the fraction over to the next delta instead.
 struct ScrollAccumulator {

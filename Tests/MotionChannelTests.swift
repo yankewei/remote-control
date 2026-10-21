@@ -123,4 +123,48 @@ final class MotionChannelTests: XCTestCase {
         XCTAssertFalse(ControlMessage.motionOffer(key: Data(count: 16)).isValid)
         XCTAssertFalse(ControlMessage.motionSync(seq: 1, x: .nan, y: 0).isValid)
     }
+
+    private func played(_ seqs: [UInt32], into stats: inout MotionStats) {
+        for (index, seq) in seqs.enumerated() {
+            stats.record(seq: seq, excessLatency: 0.001, playoutDelay: 0.01, at: Double(index) * 0.01)
+        }
+    }
+
+    func testStatsLeaveOutSyncNumbers() {
+        var stats = MotionStats()
+        played(Array(1...6), into: &stats)
+        stats.recordSync(seq: 7)
+        played(Array(8...14), into: &stats)
+        stats.recordSync(seq: 15)
+        played([16], into: &stats)
+        XCTAssertTrue(stats.summarize()?.contains("丢包 0.0% · 过期 0") == true)
+    }
+
+    func testStatsCountDatagramsLateForASyncAsStaleNotLost() {
+        var stats = MotionStats()
+        played(Array(1...5), into: &stats)
+        stats.recordSync(seq: 7)
+        // 6 was sealed before the sync but arrives after it; 5 is a resend.
+        stats.recordStale(seq: 6)
+        stats.recordStale(seq: 5)
+        played(Array(8...13), into: &stats)
+        XCTAssertTrue(stats.summarize()?.contains("丢包 0.0% · 过期 1") == true)
+    }
+
+    func testStatsStillReportRealLoss() {
+        var stats = MotionStats()
+        played(Array(1...10) + [12], into: &stats)
+        XCTAssertTrue(stats.summarize()?.contains("丢包 8.3%") == true)
+    }
+
+    func testStatsKeepSyncsAcrossWindowsAndIgnoreOldRepeats() {
+        var stats = MotionStats()
+        played(Array(1...10), into: &stats)
+        stats.recordSync(seq: 12)
+        _ = stats.summarize()
+        // 11 was in flight when the window closed; 10 is a resend from the last window.
+        played([11] + Array(13...22), into: &stats)
+        stats.recordStale(seq: 10)
+        XCTAssertTrue(stats.summarize()?.contains("丢包 0.0% · 过期 0") == true)
+    }
 }
