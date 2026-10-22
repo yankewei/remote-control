@@ -11,7 +11,7 @@ enum RemoteKey: String, Codable, CaseIterable {
 
 enum WireProtocol {
     /// Both apps are normally updated together; the handshake rejects a mismatch with a clear message.
-    static let version = 6
+    static let version = 7
 }
 
 enum ProtocolConstants {
