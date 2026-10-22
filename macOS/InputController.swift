@@ -113,24 +113,72 @@ final class InputController {
                 }
             }
         case let .key(key):
-            let code: CGKeyCode
-            let flags: CGEventFlags
-            switch key {
-            case .enter: code = 36; flags = []
-            case .escape: code = 53; flags = []
-            case .delete: code = 51; flags = []
-            case .tab: code = 48; flags = []
-            case .space: code = 49; flags = []
-            case .copy: code = 8; flags = .maskCommand
-            case .paste: code = 9; flags = .maskCommand
-            case .spotlight: code = 49; flags = .maskCommand
-            }
-            for down in [true, false] {
-                let event = CGEvent(keyboardEventSource: nil, virtualKey: code, keyDown: down)
-                event?.flags = flags
-                event?.post(tap: .cghidEventTap)
-            }
+            press(key)
         default: break
+        }
+    }
+
+    private func press(_ key: RemoteKey) {
+        let code: CGKeyCode
+        let flags: CGEventFlags
+        switch key {
+        case .enter: code = 36; flags = []
+        case .escape: code = 53; flags = []
+        case .delete: code = 51; flags = []
+        case .tab: code = 48; flags = []
+        case .space: code = 49; flags = []
+        case .copy: code = 8; flags = .maskCommand
+        case .paste: code = 9; flags = .maskCommand
+        case .spotlight: code = 49; flags = .maskCommand
+        case .switchApp: code = 48; flags = .maskCommand
+        case .fullScreen: code = 3; flags = [.maskCommand, .maskControl]
+        case .closeWindow: code = 13; flags = .maskCommand
+        case .volumeUp: return postSystemKey(0)
+        case .volumeDown: return postSystemKey(1)
+        case .brightnessUp: return postSystemKey(2)
+        case .brightnessDown: return postSystemKey(3)
+        case .mute: return postSystemKey(7)
+        case .playPause: return postSystemKey(16)
+        case .missionControl:
+            // Launching the app works even when the user has remapped or disabled the ⌃↑ shortcut.
+            let url = URL(fileURLWithPath: "/System/Applications/Mission Control.app")
+            NSWorkspace.shared.openApplication(at: url, configuration: NSWorkspace.OpenConfiguration()) { [weak self] _, error in
+                if error != nil { DispatchQueue.main.async { self?.onError?("无法打开调度中心") } }
+            }
+            return
+        }
+        // The app switcher (Dock) only reacts to ⌘Tab when Command itself goes down and up,
+        // so press the modifier keys around the key instead of only flagging it.
+        let modifiers: [(CGKeyCode, CGEventFlags)] = [(55, .maskCommand), (59, .maskControl)].filter { flags.contains($0.1) }
+        var held: CGEventFlags = []
+        for (modifier, flag) in modifiers {
+            held.insert(flag)
+            postKey(modifier, down: true, flags: held)
+        }
+        postKey(code, down: true, flags: flags)
+        postKey(code, down: false, flags: flags)
+        for (modifier, flag) in modifiers.reversed() {
+            held.remove(flag)
+            postKey(modifier, down: false, flags: held)
+        }
+    }
+
+    private func postKey(_ code: CGKeyCode, down: Bool, flags: CGEventFlags) {
+        let event = CGEvent(keyboardEventSource: nil, virtualKey: code, keyDown: down)
+        event?.flags = flags
+        event?.post(tap: .cghidEventTap)
+    }
+
+    /// Media and brightness keys are NX_SYSDEFINED aux-control events, not virtual key codes;
+    /// `type` is an NX_KEYTYPE_* value. Brightness only reaches displays macOS can dim itself.
+    private func postSystemKey(_ type: Int) {
+        for down in [true, false] {
+            let data1 = (type << 16) | ((down ? 0xA : 0xB) << 8)
+            NSEvent.otherEvent(with: .systemDefined, location: .zero,
+                               modifierFlags: NSEvent.ModifierFlags(rawValue: down ? 0xA00 : 0xB00),
+                               timestamp: 0, windowNumber: 0, context: nil,
+                               subtype: 8, data1: data1, data2: -1)?
+                .cgEvent?.post(tap: .cghidEventTap)
         }
     }
 

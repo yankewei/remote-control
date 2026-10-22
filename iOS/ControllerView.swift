@@ -12,6 +12,7 @@ struct ControllerView: View {
     @State private var editing = false
     @State private var draftBeforeSpeech = ""
     @State private var sentToast = false
+    @AppStorage("showSystemKeys") private var showSystemKeys = false
     @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
@@ -152,6 +153,15 @@ struct ControllerView: View {
                     .lineLimit(landscape ? 1 : 2)
             }
             Spacer(minLength: 8)
+            Button { showSystemKeys.toggle() } label: {
+                Image(systemName: showSystemKeys ? "command.circle.fill" : "command")
+                    .font(.system(.subheadline, weight: .semibold))
+                    .foregroundStyle(ink)
+                    .frame(width: 36, height: 36)
+                    .background(reduceTransparency ? Color(white: 0.22) : Color.white.opacity(0.12), in: Circle())
+            }
+            .buttonStyle(PressableButtonStyle(reduceMotion: reduceMotion))
+            .accessibilityLabel(showSystemKeys ? "隐藏媒体与系统键" : "显示媒体与系统键")
             Button { showConnection = true } label: {
                 Image(systemName: connection.connectedName == nil ? "link" : "slider.horizontal.3")
                     .font(.system(.subheadline, weight: .semibold))
@@ -171,6 +181,14 @@ struct ControllerView: View {
     @ViewBuilder
     private func dock(landscape: Bool) -> some View {
         VStack(spacing: 8) {
+            if showSystemKeys {
+                if landscape {
+                    HStack(spacing: 6) { ForEach(Self.mediaKeys + Self.windowKeys, id: \.self) { systemKeyButton($0) } }
+                } else {
+                    HStack(spacing: 6) { ForEach(Self.mediaKeys, id: \.self) { systemKeyButton($0) } }
+                    HStack(spacing: 6) { ForEach(Self.windowKeys, id: \.self) { systemKeyButton($0) } }
+                }
+            }
             if landscape {
                 HStack(spacing: 8) {
                     leftButton
@@ -200,6 +218,40 @@ struct ControllerView: View {
         .padding(10)
         .background { GlassSurface(cornerRadius: 24, reduceTransparency: reduceTransparency) }
         .shadow(color: .black.opacity(0.45), radius: 18, y: 8)
+    }
+
+    private static let mediaKeys: [RemoteKey] = [.volumeDown, .mute, .volumeUp, .playPause, .brightnessDown, .brightnessUp]
+    private static let windowKeys: [RemoteKey] = [.missionControl, .switchApp, .fullScreen, .closeWindow]
+
+    private func systemKeyButton(_ key: RemoteKey) -> some View {
+        Button { editing = false; connection.send(.key(key)) } label: {
+            Image(systemName: systemKeySymbol(key))
+                .font(.system(.subheadline, weight: .medium))
+                .foregroundStyle(ink)
+                .frame(maxWidth: .infinity)
+                .frame(height: 34)
+                .background(controlBackground, in: RoundedRectangle(cornerRadius: 10, style: .continuous))
+        }
+        .buttonStyle(PressableButtonStyle(reduceMotion: reduceMotion))
+        .disabled(!inputEnabled)
+        .opacity(inputEnabled ? 1 : 0.4)
+        .accessibilityLabel(keyAccessibilityLabel(key))
+    }
+
+    private func systemKeySymbol(_ key: RemoteKey) -> String {
+        switch key {
+        case .volumeDown: return "speaker.wave.1.fill"
+        case .mute: return "speaker.slash.fill"
+        case .volumeUp: return "speaker.wave.3.fill"
+        case .playPause: return "playpause.fill"
+        case .brightnessDown: return "sun.min.fill"
+        case .brightnessUp: return "sun.max.fill"
+        case .missionControl: return "rectangle.3.group"
+        case .switchApp: return "arrow.left.arrow.right.square"
+        case .fullScreen: return "arrow.up.left.and.arrow.down.right"
+        case .closeWindow: return "xmark.rectangle"
+        default: return "questionmark"
+        }
     }
 
     private var leftButton: some View {
@@ -285,6 +337,16 @@ struct ControllerView: View {
         case .delete: return "删除"
         case .escape: return "退出键"
         case .tab: return "制表键"
+        case .volumeDown: return "降低音量"
+        case .mute: return "静音"
+        case .volumeUp: return "提高音量"
+        case .playPause: return "播放或暂停"
+        case .brightnessDown: return "降低亮度"
+        case .brightnessUp: return "提高亮度"
+        case .missionControl: return "调度中心"
+        case .switchApp: return "切换到上一个 App"
+        case .fullScreen: return "全屏"
+        case .closeWindow: return "关闭窗口"
         default: return ""
         }
     }
