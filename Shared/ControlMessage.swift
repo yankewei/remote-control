@@ -7,7 +7,7 @@ enum RemoteKey: String, Codable { case enter, escape, delete, tab, space, copy, 
 
 enum WireProtocol {
     /// Both apps are normally updated together; the handshake rejects a mismatch with a clear message.
-    static let version = 5
+    static let version = 6
 }
 
 enum ProtocolConstants {
@@ -41,7 +41,7 @@ enum ControlMessage: Codable, Equatable {
     case motionReady
     /// iPhone → Mac: the motion total sent so far, ahead of a click/drag/key on the TCP stream,
     /// so the action lands where the pointer ends up even if Bluetooth datagrams are late or lost.
-    case motionSync(seq: UInt32, x: Double, y: Double)
+    case motionSync(seq: UInt32, totals: MotionTotals)
 
     var isValid: Bool {
         switch self {
@@ -50,7 +50,7 @@ enum ControlMessage: Codable, Equatable {
                 && abs(x) <= ProtocolConstants.maximumPointerDelta
                 && abs(y) <= ProtocolConstants.maximumPointerDelta
         case let .motionOffer(key): return key.count == 32
-        case let .motionSync(_, x, y): return MotionPacket.isValidTotal(x) && MotionPacket.isValidTotal(y)
+        case let .motionSync(_, totals): return totals.isValid
         case let .click(_, count): return (1...3).contains(count)
         case let .text(_, text): return !text.isEmpty && text.utf8.count <= ProtocolConstants.maximumTextBytes
         case let .hello(name, version, deviceID):
@@ -113,7 +113,7 @@ enum ProtocolError: Error, Equatable { case invalidMessage, oversizedFrame }
 // MARK: - Bluetooth motion channel
 //
 // Pointer motion over Wi-Fi arrives in bursts (power save, retransmits), so the cursor stutters.
-// Motion instead goes over a direct Bluetooth LE link: each datagram carries the running total
+// Motion and two-finger scrolling instead go over a direct Bluetooth LE link: each datagram carries the running total
 // since the session started (a skipped datagram is healed by the next one) and the sender's
 // clock, so the Mac can replay the stroke at its original pace after a small fixed delay.
 
@@ -127,25 +127,50 @@ enum MotionChannel {
     static let bluetoothCharacteristic = "8E3F2C1B-5B7D-4E9A-9C61-2D4B7A1E6F30"
 }
 
+/// Running pointer and scroll totals since a motion session started; the difference of two is
+/// the delta to apply. Scroll rides along with the pointer so it gets the same smooth playout.
+struct MotionTotals: Codable, Equatable {
+    var x = 0.0
+    var y = 0.0
+    var scrollX = 0.0
+    var scrollY = 0.0
+
+    static let zero = MotionTotals()
+
+    var pointer: CGVector { CGVector(dx: x, dy: y) }
+    var isValid: Bool { [x, y, scrollX, scrollY].allSatisfy { $0.isFinite && abs($0) < 1e12 } }
+
+    static func - (lhs: MotionTotals, rhs: MotionTotals) -> MotionTotals {
+        MotionTotals(x: lhs.x - rhs.x, y: lhs.y - rhs.y, scrollX: lhs.scrollX - rhs.scrollX, scrollY: lhs.scrollY - rhs.scrollY)
+    }
+
+    static func + (lhs: MotionTotals, rhs: MotionTotals) -> MotionTotals {
+        MotionTotals(x: lhs.x + rhs.x, y: lhs.y + rhs.y, scrollX: lhs.scrollX + rhs.scrollX, scrollY: lhs.scrollY + rhs.scrollY)
+    }
+
+    static func * (lhs: MotionTotals, t: Double) -> MotionTotals {
+        MotionTotals(x: lhs.x * t, y: lhs.y * t, scrollX: lhs.scrollX * t, scrollY: lhs.scrollY * t)
+    }
+}
+
 struct MotionPacket: Equatable {
     enum Kind: UInt8 { case probe = 0, motion = 1 }
 
     var kind: Kind
     var seq: UInt32
     var timestamp: Double
-    var x: Double
-    var y: Double
+    var totals: MotionTotals
 
-    private static let plainSize = 1 + 4 + 8 * 3
+    private static let plainSize = 1 + 4 + 8 * 5
     static let sealedSize = 12 + plainSize + 16
-
-    static func isValidTotal(_ value: Double) -> Bool { value.isFinite && abs(value) < 1e12 }
 
     func seal(with key: SymmetricKey) throws -> Data {
         var plain = Data(capacity: Self.plainSize)
         plain.append(kind.rawValue)
         Self.append(UInt64(seq), bytes: 4, to: &plain)
-        for value in [timestamp, x, y] { Self.append(value.bitPattern, bytes: 8, to: &plain) }
+        for value in [timestamp, totals.x, totals.y, totals.scrollX, totals.scrollY] {
+            Self.append(value.bitPattern, bytes: 8, to: &plain)
+        }
         return try ChaChaPoly.seal(plain, using: key).combined
     }
 
@@ -160,10 +185,10 @@ struct MotionPacket: Equatable {
         func read(_ offset: Int, _ count: Int) -> UInt64 {
             bytes[offset..<offset + count].reduce(0) { ($0 << 8) | UInt64($1) }
         }
-        let packet = MotionPacket(kind: kind, seq: UInt32(read(1, 4)),
-                                  timestamp: Double(bitPattern: read(5, 8)),
-                                  x: Double(bitPattern: read(13, 8)), y: Double(bitPattern: read(21, 8)))
-        guard packet.timestamp.isFinite, isValidTotal(packet.x), isValidTotal(packet.y) else { return nil }
+        func double(_ offset: Int) -> Double { Double(bitPattern: read(offset, 8)) }
+        let packet = MotionPacket(kind: kind, seq: UInt32(read(1, 4)), timestamp: double(5),
+                                  totals: MotionTotals(x: double(13), y: double(21), scrollX: double(29), scrollY: double(37)))
+        guard packet.timestamp.isFinite, packet.totals.isValid else { return nil }
         return packet
     }
 
@@ -175,7 +200,7 @@ struct MotionPacket: Equatable {
 /// Turns bursty, possibly reordered motion samples into a steady stream: each sample is scheduled
 /// at `sender time + clock offset + delay` and the pointer is interpolated between samples.
 struct MotionPlayout {
-    private struct Sample { var time: Double; var x: Double; var y: Double }
+    private struct Sample { var time: Double; var totals: MotionTotals }
 
     var delay = MotionChannel.playoutDelay
     /// Fit `delay` to the link: the recent p95 lateness plus a margin. It may rise a little within
@@ -198,15 +223,14 @@ struct MotionPlayout {
     private var samples: [Sample] = []
     private var offset: Double?
     private var offsetUpdated: Double = 0
-    private var emittedX = 0.0
-    private var emittedY = 0.0
+    private var emitted = MotionTotals.zero
     /// A sample gap longer than this is a pause, not slow motion: the move it carries happened
     /// within roughly one touch frame before the sample, so it is not stretched across the pause.
     private static let maximumSpan = 0.02
 
     var isIdle: Bool {
         guard let last = samples.last else { return true }
-        return last.x == emittedX && last.y == emittedY
+        return last.totals == emitted
     }
 
     /// Queues a motion sample. Returns its lateness compared with the fastest one seen recently
@@ -224,7 +248,7 @@ struct MotionPlayout {
         if adaptive { adapt(lateness: observed - offset, at: now) }
         var time = packet.timestamp + offset + delay
         if let last = samples.last { time = max(time, last.time) }
-        samples.append(Sample(time: time, x: packet.x, y: packet.y))
+        samples.append(Sample(time: time, totals: packet.totals))
         return observed - offset
     }
 
@@ -241,43 +265,42 @@ struct MotionPlayout {
         else if target > delay { delay = min(target, delay + Self.maximumRiseStep) }
     }
 
-    /// Moves the playout cursor to `now` and returns the delta to apply.
-    mutating func advance(to now: Double) -> CGVector {
+    /// Moves the playout cursor to `now` and returns the pointer and scroll deltas to apply.
+    mutating func advance(to now: Double) -> MotionTotals {
         // Keep exactly one sample at or before `now` as the interpolation base.
         while samples.count > 1, samples[1].time <= now { samples.removeFirst() }
         guard let base = samples.first, base.time <= now else { return .zero }
-        var target = (x: base.x, y: base.y)
+        var target = base.totals
         if samples.count > 1 {
             let next = samples[1]
             let start = max(base.time, next.time - Self.maximumSpan)
             if now > start {
                 let t = (now - start) / (next.time - start)
-                target = (base.x + (next.x - base.x) * t, base.y + (next.y - base.y) * t)
+                target = base.totals + (next.totals - base.totals) * t
             }
         }
         return emit(to: target)
     }
 
     /// Applies everything received so far at once (before a click/drag/key).
-    mutating func flush() -> CGVector {
+    mutating func flush() -> MotionTotals {
         guard let last = samples.last else { return .zero }
         samples = [last]
-        return emit(to: (last.x, last.y))
+        return emit(to: last.totals)
     }
 
     /// Jumps to an authoritative total from the ordered TCP stream; later-arriving older datagrams
     /// are then ignored by sequence number.
-    mutating func sync(seq: UInt32, x: Double, y: Double) -> CGVector {
+    mutating func sync(seq: UInt32, totals: MotionTotals) -> MotionTotals {
         if let lastSeq, seq < lastSeq { return flush() }
         lastSeq = seq
-        samples = [Sample(time: -.infinity, x: x, y: y)]
-        return emit(to: (x, y))
+        samples = [Sample(time: -.infinity, totals: totals)]
+        return emit(to: totals)
     }
 
-    private mutating func emit(to target: (x: Double, y: Double)) -> CGVector {
-        let delta = CGVector(dx: target.x - emittedX, dy: target.y - emittedY)
-        emittedX = target.x
-        emittedY = target.y
+    private mutating func emit(to target: MotionTotals) -> MotionTotals {
+        let delta = target - emitted
+        emitted = target
         return delta
     }
 }

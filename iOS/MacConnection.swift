@@ -5,16 +5,15 @@ import UIKit
 import CryptoKit
 
 /// One Bluetooth motion session (see MotionPacket). Until the Mac confirms a datagram arrived
-/// (`ready`), and whenever the link is down, moves go over the Wi-Fi connection instead and are
-/// not added to the running total.
+/// (`ready`), and whenever the link is down, moves and scrolls go over the Wi-Fi connection
+/// instead and are not added to the running totals.
 private struct MotionSession {
     let key: SymmetricKey
     var ready = false
     var seq: UInt32 = 0
     /// The totals moved since the last `motionSync`.
     var unsynced = false
-    var x = 0.0
-    var y = 0.0
+    var totals = MotionTotals.zero
     var probe: Timer?
 
     /// Seals a datagram with the totals as they are now. Each motion datagram actually written
@@ -25,7 +24,7 @@ private struct MotionSession {
     mutating func seal(_ kind: MotionPacket.Kind) -> Data? {
         if kind == .motion { seq &+= 1 }
         return try? MotionPacket(kind: kind, seq: seq, timestamp: ProcessInfo.processInfo.systemUptime,
-                                 x: x, y: y).seal(with: key)
+                                 totals: totals).seal(with: key)
     }
 }
 
@@ -397,8 +396,17 @@ final class MacConnection {
     func movePointer(dx: Double, dy: Double) {
         guard connectedName != nil, inputAllowed else { return }
         guard motionOverBluetooth else { send(.move(dx: dx, dy: dy)); return }
-        motion?.x += dx
-        motion?.y += dy
+        motion?.totals.x += dx
+        motion?.totals.y += dy
+        motion?.unsynced = true
+        sendMotion(.motion)
+    }
+
+    /// One two-finger scroll sample. It shares the pointer's datagrams, so a stroke that scrolls
+    /// is replayed on the Mac at the same steady pace as one that moves.
+    private func scrollOverBluetooth(dx: Double, dy: Double) {
+        motion?.totals.scrollX += dx
+        motion?.totals.scrollY += dy
         motion?.unsynced = true
         sendMotion(.motion)
     }
@@ -413,6 +421,8 @@ final class MacConnection {
             let current = coalescedMove ?? (0, 0)
             coalescedMove = (ControlMessage.clampDelta(current.dx + dx), ControlMessage.clampDelta(current.dy + dy))
             scheduleFlush()
+        case let .scroll(dx, dy) where motionOverBluetooth:
+            scrollOverBluetooth(dx: dx, dy: dy)
         case let .scroll(dx, dy):
             let current = coalescedScroll ?? (0, 0)
             coalescedScroll = (ControlMessage.clampDelta(current.dx + dx), ControlMessage.clampDelta(current.dy + dy))
@@ -433,7 +443,7 @@ final class MacConnection {
         let seq = motion.seq &+ 1
         self.motion?.seq = seq
         self.motion?.unsynced = false
-        channel?.send(.motionSync(seq: seq, x: motion.x, y: motion.y))
+        channel?.send(.motionSync(seq: seq, totals: motion.totals))
     }
 
     private func startMotion(key: Data) {

@@ -69,10 +69,9 @@ final class InputController {
 
     func handle(_ message: ControlMessage) {
         guard accessibilityAllowed else { onError?("请先在 Mac 系统设置中允许辅助功能访问"); return }
-        if case let .motionSync(seq, x, y) = message {
+        if case let .motionSync(seq, totals) = message {
             stopSmoothing()
-            let delta = playout.sync(seq: seq, x: x, y: y)
-            if delta != .zero { post(delta) }
+            apply(playout.sync(seq: seq, totals: totals))
             return
         }
         // Anything else (Wi-Fi move, click, drag, scroll, key) must land where the pointer will end up.
@@ -92,10 +91,7 @@ final class InputController {
                 event?.post(tap: .cghidEventTap)
             }
         case let .scroll(dx, dy):
-            let whole = scroll.take(dx: dx, dy: dy)
-            guard whole != (0, 0) else { return }
-            CGEvent(scrollWheelEvent2Source: nil, units: .pixel, wheelCount: 2,
-                    wheel1: whole.dy, wheel2: whole.dx, wheel3: 0)?.post(tap: .cghidEventTap)
+            postScroll(dx: dx, dy: dy)
         case let .drag(active):
             guard active != dragging else { return }
             dragging = active
@@ -161,8 +157,7 @@ final class InputController {
     }
 
     private func tick() {
-        let step = playout.advance(to: ProcessInfo.processInfo.systemUptime)
-        if step != .zero { post(step) }
+        apply(playout.advance(to: ProcessInfo.processInfo.systemUptime))
         if playout.isIdle { stopSmoothing() }
     }
 
@@ -178,9 +173,20 @@ final class InputController {
     }
 
     private func flushMove() {
-        let remaining = playout.flush()
-        if remaining != .zero { post(remaining) }
+        apply(playout.flush())
         stopSmoothing()
+    }
+
+    private func apply(_ delta: MotionTotals) {
+        if delta.x != 0 || delta.y != 0 { post(delta.pointer) }
+        if delta.scrollX != 0 || delta.scrollY != 0 { postScroll(dx: delta.scrollX, dy: delta.scrollY) }
+    }
+
+    private func postScroll(dx: Double, dy: Double) {
+        let whole = scroll.take(dx: dx, dy: dy)
+        guard whole != (0, 0) else { return }
+        CGEvent(scrollWheelEvent2Source: nil, units: .pixel, wheelCount: 2,
+                wheel1: whole.dy, wheel2: whole.dx, wheel3: 0)?.post(tap: .cghidEventTap)
     }
 
     private func post(_ delta: CGVector) {

@@ -178,7 +178,7 @@ final class ConnectionServer {
                     channel.send(.failure("上一段文字仍在粘贴，请稍后再发送"))
                     return
                 }
-                if case let .motionSync(seq, _, _) = message { self.motionStats.recordSync(seq: seq) }
+                if case let .motionSync(seq, _) = message { self.motionStats.recordSync(seq: seq) }
                 self.input.handle(message)
                 if case let .text(requestID, _) = message, self.permissionGranted {
                     channel.send(.textAccepted(id: requestID))
