@@ -101,9 +101,9 @@ final class BluetoothMotionSender: NSObject, CBCentralManagerDelegate, CBPeriphe
     func centralManagerDidUpdateState(_ central: CBCentralManager) {
         switch central.state {
         case .poweredOn: onNotice?("正在通过蓝牙连接 Mac…")
-        case .poweredOff: onNotice?("蓝牙已关闭，鼠标移动暂走 Wi-Fi，可能不够平稳")
-        case .unauthorized: onNotice?("未允许使用蓝牙，鼠标移动暂走 Wi-Fi；可在“设置 > 遥控板”中开启")
-        case .unsupported: onNotice?("此设备不支持蓝牙，鼠标移动走 Wi-Fi")
+        case .poweredOff: onNotice?("蓝牙已关闭，移动和滚动暂走 Wi-Fi，可能不够平稳")
+        case .unauthorized: onNotice?("未允许使用蓝牙，移动和滚动暂走 Wi-Fi；可在“设置 > 遥控板”中开启")
+        case .unsupported: onNotice?("此设备不支持蓝牙，移动和滚动走 Wi-Fi")
         default: break
         }
         if central.state != .poweredOn {
@@ -143,7 +143,7 @@ final class BluetoothMotionSender: NSObject, CBCentralManagerDelegate, CBPeriphe
         guard ended === peripheral else { return }
         peripheral = nil
         characteristic = nil
-        if target != nil, central.state == .poweredOn { onNotice?("蓝牙连接中断，鼠标移动暂走 Wi-Fi，正在重连…") }
+        if target != nil, central.state == .poweredOn { onNotice?("蓝牙连接中断，移动和滚动暂走 Wi-Fi，正在重连…") }
         scan(central)
     }
 
@@ -167,7 +167,7 @@ final class BluetoothMotionSender: NSObject, CBCentralManagerDelegate, CBPeriphe
             abandon(peripheral); return
         }
         guard peripheral.maximumWriteValueLength(for: .withoutResponse) >= MotionPacket.sealedSize else {
-            onNotice?("蓝牙连接不支持所需的数据包大小，鼠标移动暂走 Wi-Fi")
+            onNotice?("蓝牙连接不支持所需的数据包大小，移动和滚动暂走 Wi-Fi")
             return
         }
         characteristic = found
