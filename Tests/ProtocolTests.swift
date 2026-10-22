@@ -23,6 +23,13 @@ final class ProtocolTests: XCTestCase {
         }
     }
 
+    func testEveryRemoteKeyRoundTrips() throws {
+        for key in RemoteKey.allCases {
+            var framer = MessageFramer()
+            XCTAssertEqual(try framer.append(MessageFramer.encode(.key(key))), [.key(key)])
+        }
+    }
+
     func testRejectsInvalidPayloads() throws {
         for prefix: [UInt8] in [[0, 0, 0, 0], [0, 0, 128, 1], [255, 255, 255, 255]] {
             var framer = MessageFramer()
