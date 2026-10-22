@@ -3,7 +3,11 @@ import CoreGraphics
 import CryptoKit
 
 enum MouseButton: String, Codable { case left, right }
-enum RemoteKey: String, Codable { case enter, escape, delete, tab, space, copy, paste, spotlight }
+enum RemoteKey: String, Codable, CaseIterable {
+    case enter, escape, delete, tab, space, copy, paste, spotlight
+    case volumeUp, volumeDown, mute, playPause, brightnessUp, brightnessDown
+    case missionControl, switchApp, fullScreen, closeWindow
+}
 
 enum WireProtocol {
     /// Both apps are normally updated together; the handshake rejects a mismatch with a clear message.
