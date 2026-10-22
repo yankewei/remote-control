@@ -172,6 +172,8 @@ final class BluetoothMotionSender: NSObject, CBCentralManagerDelegate, CBPeriphe
         }
         characteristic = found
         onNotice?(nil)
+        // Never notified; the subscription is what keeps the Mac from dropping the link as unused.
+        if found.properties.contains(.notify) { peripheral.setNotifyValue(true, for: found) }
     }
 
     /// The Mac re-registers its service when its Bluetooth restarts; find the new one.
