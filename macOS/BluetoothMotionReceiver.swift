@@ -1,10 +1,12 @@
 import CoreBluetooth
 
 /// The motion path: a write-without-response characteristic the phone writes sealed
-/// `MotionPacket`s to. Writes are not trusted here — `onDatagram` must still open them with the
-/// session key. CoreBluetooth calls back on its own queue so each write is timestamped the moment
-/// it lands, before it waits behind anything on the main thread; every callback here then hops to
-/// main.
+/// `MotionPacket`s to. The phone also subscribes to it, though nothing is ever notified: macOS
+/// drops a central's link about once a minute as unused unless an app on the Mac holds it, and
+/// receiving writes does not count. Writes are not trusted here — `onDatagram` must still open
+/// them with the session key. CoreBluetooth calls back on its own queue so each write is
+/// timestamped the moment it lands, before it waits behind anything on the main thread; every
+/// callback here then hops to main.
 final class BluetoothMotionReceiver: NSObject, CBPeripheralManagerDelegate {
     /// A datagram and its arrival time on the uptime clock.
     var onDatagram: ((Data, TimeInterval) -> Void)?
@@ -12,7 +14,6 @@ final class BluetoothMotionReceiver: NSObject, CBPeripheralManagerDelegate {
     var onProblem: ((String?) -> Void)?
     private var manager: CBPeripheralManager?
     private var name = ""
-    private var tunedCentrals = Set<UUID>()
     private let queue = DispatchQueue(label: "BluetoothMotionReceiver", qos: .userInteractive)
 
     func start(name: String) {
@@ -25,7 +26,6 @@ final class BluetoothMotionReceiver: NSObject, CBPeripheralManagerDelegate {
         manager?.stopAdvertising()
         manager?.removeAllServices()
         manager = nil
-        tunedCentrals.removeAll()
     }
 
     private func publish(_ manager: CBPeripheralManager) {
@@ -33,7 +33,7 @@ final class BluetoothMotionReceiver: NSObject, CBPeripheralManagerDelegate {
         manager.stopAdvertising()
         manager.removeAllServices()
         let characteristic = CBMutableCharacteristic(type: CBUUID(string: MotionChannel.bluetoothCharacteristic),
-                                                     properties: [.writeWithoutResponse], value: nil, permissions: [.writeable])
+                                                     properties: [.writeWithoutResponse, .notify], value: nil, permissions: [.writeable])
         let service = CBMutableService(type: CBUUID(string: MotionChannel.bluetoothService), primary: true)
         service.characteristics = [characteristic]
         manager.add(service)
@@ -69,16 +69,21 @@ final class BluetoothMotionReceiver: NSObject, CBPeripheralManagerDelegate {
         report(error.map { "蓝牙广播失败，鼠标移动改走 Wi-Fi：\($0.localizedDescription)" })
     }
 
+    /// The phone subscribes once per link, so this is where each link gets tuned.
+    func peripheralManager(_ peripheral: CBPeripheralManager, central: CBCentral,
+                           didSubscribeTo characteristic: CBCharacteristic) {
+        DispatchQueue.main.async { [weak self] in
+            guard let self, peripheral === self.manager else { return }
+            // Ask for the shortest connection interval; the default is much slower.
+            peripheral.setDesiredConnectionLatency(.low, for: central)
+        }
+    }
+
     func peripheralManager(_ peripheral: CBPeripheralManager, didReceiveWrite requests: [CBATTRequest]) {
         let arrival = ProcessInfo.processInfo.systemUptime
         let values = requests.compactMap(\.value)
-        let newCentrals = requests.map(\.central)
         DispatchQueue.main.async { [weak self] in
             guard let self, peripheral === self.manager else { return }
-            for central in newCentrals where self.tunedCentrals.insert(central.identifier).inserted {
-                // Ask for the shortest connection interval once per phone; the default is much slower.
-                peripheral.setDesiredConnectionLatency(.low, for: central)
-            }
             for value in values { self.onDatagram?(value, arrival) }
         }
     }
